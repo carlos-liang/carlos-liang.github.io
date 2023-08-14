@@ -1,9 +1,9 @@
-import React, {useCallback, useEffect, useRef, useState} from "react";
-import {useFrame, useThree} from "@react-three/fiber";
-import {useAnimations, useGLTF} from "@react-three/drei";
-import {CapsuleCollider, Physics, RigidBody} from '@react-three/rapier'
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useAnimations, useGLTF } from "@react-three/drei";
+import { CapsuleCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from "three";
-import {Bmo} from "./Bmo";
+import { Bmo } from "./Bmo";
 
 const CharacterController = () => {
   const characterBody = useRef();
@@ -13,7 +13,8 @@ const CharacterController = () => {
     forward: false,
     backward: false,
     left: false,
-    right: false
+    right: false,
+    sprint: false
   })
   const [movementY] = useState(() => ({
     positionOffsetY: 0.0,
@@ -22,28 +23,32 @@ const CharacterController = () => {
     onGround: true,
   }))
 
-  const velocity = 150;
-  const { nodes, materials, animations } = useGLTF('/bmo/scene.gltf')
-  const { actions } = useAnimations(animations, character)
+  const velocity = 300;
+  const sprintVelocity = 600;
+  const {nodes, materials, animations} = useGLTF('/bmo/scene.gltf')
+  const {actions} = useAnimations(animations, character)
 
   let rotateQuaternion = new THREE.Quaternion();
 
   const handleKeyPress = useCallback((event) => {
     switch (event.keyCode) {
       case 87: //w
-        setMovement((prev) => ({ ...prev, forward: true }));
+        setMovement((prev) => ({...prev, forward: true}));
         break;
       case 65: //a
-        setMovement((prev) => ({ ...prev, left: true }));
+        setMovement((prev) => ({...prev, left: true}));
         break;
       case 83: //s
-        setMovement((prev) => ({ ...prev, backward: true }));
+        setMovement((prev) => ({...prev, backward: true}));
         break;
       case 68: //d
-        setMovement((prev) => ({ ...prev, right: true }));
+        setMovement((prev) => ({...prev, right: true}));
         break;
       case 32: //space
         movementY.onGround && ((movementY.velocityY = -6.0), (movementY.onGround = false))
+        break;
+      case 16: //shift
+        setMovement((prev) => ({...prev, sprint: true}));
         break;
     }
   }, []);
@@ -51,25 +56,28 @@ const CharacterController = () => {
   const handleKeyUp = useCallback((event) => {
     switch (event.keyCode) {
       case 87: //w
-        setMovement((prev) => ({ ...prev, forward: false }));
+        setMovement((prev) => ({...prev, forward: false}));
         break;
       case 65: //a
-        setMovement((prev) => ({ ...prev, left: false }));
+        setMovement((prev) => ({...prev, left: false}));
         break;
       case 83: //s
-        setMovement((prev) => ({ ...prev, backward: false }));
+        setMovement((prev) => ({...prev, backward: false}));
         break;
       case 68: //d
-        setMovement((prev) => ({ ...prev, right: false }));
+        setMovement((prev) => ({...prev, right: false}));
         break;
       case 32: //space
         movementY.velocityY < -3.0 && (movementY.velocityY = -3.0);
         break;
+      case 16: //left shift
+        setMovement((prev) => ({...prev, sprint: false}));
+        break;
     }
   }, []);
 
-  const calculateOrientation = ({ forward, backward, left, right }) => {
-    const angle = Math.PI / 4 / 7 ; // rotation normalizedSpeed (more divided => more smooth)
+  const calculateOrientation = ({forward, backward, left, right}) => {
+    const angle = Math.PI / 4 / 7; // rotation normalizedSpeed (more divided => more smooth)
     const topLeftAngle = 3.927; // (225 * Math.PI / 180).toFixed(3)
     const bottomLeftAngle = 5.498; // (315 * Math.PI / 180).toFixed(3)
     const topRightAngle = 2.356; // (135 * Math.PI / 180).toFixed(3)
@@ -122,7 +130,6 @@ const CharacterController = () => {
   }
 
   useFrame((state, delta) => {
-
     if (movement.forward || movement.backward || movement.left || movement.right || !movementY.onGround || characterBody.current.linvel().y < -30) {
       actions.Animation.play();
 
@@ -150,9 +157,9 @@ const CharacterController = () => {
 
       const linvelY = characterBody.current.linvel().y;
 
+      const speed = movement.sprint ? sprintVelocity : velocity;
       const nbOfKeysPressed = Object.values(movement).reduce((count, value) => count + value, 0);
-      const normalizedSpeed = nbOfKeysPressed == 1 ? velocity * delta : Math.sqrt(2) * (velocity / 2) * delta;
-
+      const normalizedSpeed = nbOfKeysPressed == 1 ? speed * delta : Math.sqrt(2) * (speed / 2) * delta;
 
       const impulse = {
         x: movement.left ? -normalizedSpeed : movement.right ? normalizedSpeed : 0,
@@ -177,10 +184,13 @@ const CharacterController = () => {
       //
       // state.camera.position.copy(cameraPosition);
       // state.camera.lookAt(cameraTarget);
-
     } else {
       actions.Animation.fadeOut(0.2);
       actions.Animation.reset().fadeIn(0.2).play();
+    }
+
+    if (characterBody.current.translation().y < -20) {
+      characterBody.current.setTranslation({x: -2.0, y: 1.0, z: 2.2})
     }
   })
 
@@ -199,14 +209,14 @@ const CharacterController = () => {
       lockRotations={true}
       ref={characterBody}
       colliders={false}
-      position={[0, 1, 0]}
+      position={[-2, 1, 2.2]}
       restitution={0.2}
       friction={1}
     >
       <group ref={character}>
         <Bmo/>
       </group>
-      <CapsuleCollider args={[0.8, 0.4]} position={[0, 1.2, 0]} />
+      <CapsuleCollider args={[0.8, 0.4]} position={[0, 1.2, 0]}/>
     </RigidBody>
   )
 };

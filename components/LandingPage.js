@@ -1,14 +1,12 @@
-import React, {useEffect, Suspense, useState} from 'react';
+import React, { Suspense, useState } from 'react';
 import { Canvas } from "@react-three/fiber";
-import {Cloud, OrbitControls, PerspectiveCamera, Sky, Sparkles, Stars} from "@react-three/drei";
+import { OrbitControls, Stars } from "@react-three/drei";
 import CharacterController from "./CharacterController";
-
-import {Physics, RigidBody} from "@react-three/rapier";
-import {PokemonRoom} from "./PokemonRoom";
-import Navbar from "./NavBar";
+import { Physics } from "@react-three/rapier";
+import { PokemonRoom } from "./PokemonRoom";
 
 const LandingPage = () => {
-  const [dpr, setDpr] = useState(0.5)
+  const [dpr, setDpr] = useState(1.5)
 
   return (
     <div className="w-full h-screen relative">
@@ -17,19 +15,18 @@ const LandingPage = () => {
           fov: 20,
           near: 0.1,
           far: 1000,
-          position: [0, 6, 6],
-
+          position: [5, 20, 35],
         }}
         linear="true"
         legacy="false"
-        shadows
+        dpr={dpr}
       >
-        <ambientLight intensity={0.85} />
-        <OrbitControls />
+        <ambientLight intensity={0.85}/>
+        <OrbitControls/>
         <Suspense fallback={null}>
-          <Physics >
+          <Physics>
             <CharacterController/>
-            <pointLight position={[5, 5, 5]} />
+            <pointLight position={[5, 5, 5]}/>
             <PokemonRoom/>
           </Physics>
         </Suspense>

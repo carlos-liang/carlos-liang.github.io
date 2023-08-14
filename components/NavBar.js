@@ -21,7 +21,7 @@ const Navbar = () => {
             </Link>
             <Link href='https://www.linkedin.com/in/carlosl97/' target='_blank' rel='noopener noreferrer'>
               <li className='lg:inline-flex lg:w-auto w-full px-3 py-2 rounded text-white font-bold items-center justify-center'>
-                <AiFillLinkedin size={20} /> {/* Replacing "Services" with LinkedIn icon */}
+                <AiFillLinkedin size={20} />
               </li>
             </Link>
           </div>

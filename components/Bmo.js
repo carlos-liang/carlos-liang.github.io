@@ -8,7 +8,7 @@ export function Bmo(props) {
   return (
     <group ref={group} {...props} dispose={null}>
       <group name="Sketchfab_Scene">
-        <group name="Sketchfab_model" rotation={[-Math.PI / 2, 0, 0]} scale={[4, 4, 4]}>
+        <group name="Sketchfab_model" rotation={[-Math.PI / 2, 0, 0]} scale={[5, 5, 5]}>
           <group name="root">
             <group name="GLTF_SceneRootNode" rotation={[Math.PI / 2, 0, 0]}>
               <group name="BODY_0" position={[0, 0.16, 0]} scale={[1, 0.975, 0.988]}>
