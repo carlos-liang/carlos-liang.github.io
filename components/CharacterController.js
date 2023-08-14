@@ -15,6 +15,12 @@ const CharacterController = () => {
     left: false,
     right: false
   })
+  const [movementY] = useState(() => ({
+    positionOffsetY: 0.0,
+    velocityY: 0.0,
+    gravity: 0.5,
+    onGround: true,
+  }))
 
   const velocity = 70;
   const { nodes, materials, animations } = useGLTF('/bmo/scene.gltf')
@@ -36,6 +42,9 @@ const CharacterController = () => {
       case 68: //d
         setMovement((prev) => ({ ...prev, right: true }));
         break;
+      case 32: //space
+        movementY.onGround && ((movementY.velocityY = -6.0), (movementY.onGround = false))
+        break;
     }
   }, []);
 
@@ -52,6 +61,9 @@ const CharacterController = () => {
         break;
       case 68: //d
         setMovement((prev) => ({ ...prev, right: false }));
+        break;
+      case 32: //space
+        movementY.velocityY < -3.0 && (movementY.velocityY = -3.0);
         break;
     }
   }, []);
@@ -110,7 +122,10 @@ const CharacterController = () => {
   }
 
   useFrame((state, delta) => {
-    if (movement.forward || movement.backward || movement.left || movement.right) {
+    // console.log(characterBody.current.linvel().y)
+    console.log(characterBody.current.linvel().x, characterBody.current.linvel().y, characterBody.current.linvel().z)
+
+    if (movement.forward || movement.backward || movement.left || movement.right || !movementY.onGround || characterBody.current.linvel().y < -30) {
       actions.Animation.play();
 
       /**
@@ -123,12 +138,27 @@ const CharacterController = () => {
       /**
        * Model Movement
        */
+      movementY.velocityY += movementY.gravity
+      movementY.positionOffsetY -= movementY.velocityY
+      if (movementY.positionOffsetY < 0) {
+        movementY.positionOffsetY = 0
+        movementY.velocityY = 0.0
+        movementY.onGround = true
+      }
+
+      // if character falls off, respawn
+      let respawn = false;
+      if (characterBody.current.linvel().y < -20) respawn = true
+
       const linvelY = characterBody.current.linvel().y;
+
       const nbOfKeysPressed = Object.values(movement).reduce((count, value) => count + value, 0);
       const normalizedSpeed = nbOfKeysPressed == 1 ? velocity * delta : Math.sqrt(2) * (velocity / 2) * delta;
+
+
       const impulse = {
         x: movement.left ? -normalizedSpeed : movement.right ? normalizedSpeed : 0,
-        y: linvelY,
+        y: linvelY + (movementY.positionOffsetY / 100),
         z: movement.forward ? -normalizedSpeed : movement.backward ? normalizedSpeed : 0
       };
       characterBody.current.setLinvel(impulse);
