@@ -2,8 +2,6 @@ import React, {useEffect, Suspense, useState} from 'react';
 import { Canvas } from "@react-three/fiber";
 import {OrbitControls, PerspectiveCamera, Sky} from "@react-three/drei";
 import CharacterController from "./CharacterController";
-import Room from "./Room";
-
 
 import {Physics, RigidBody} from "@react-three/rapier";
 import {PokemonRoom} from "./PokemonRoom";

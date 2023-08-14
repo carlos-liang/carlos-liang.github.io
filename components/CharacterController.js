@@ -122,8 +122,6 @@ const CharacterController = () => {
   }
 
   useFrame((state, delta) => {
-    // console.log(characterBody.current.linvel().y)
-    console.log(characterBody.current.linvel().x, characterBody.current.linvel().y, characterBody.current.linvel().z)
 
     if (movement.forward || movement.backward || movement.left || movement.right || !movementY.onGround || characterBody.current.linvel().y < -30) {
       actions.Animation.play();
