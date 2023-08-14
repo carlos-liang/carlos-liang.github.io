@@ -22,7 +22,7 @@ const CharacterController = () => {
     onGround: true,
   }))
 
-  const velocity = 70;
+  const velocity = 150;
   const { nodes, materials, animations } = useGLTF('/bmo/scene.gltf')
   const { actions } = useAnimations(animations, character)
 
@@ -69,7 +69,7 @@ const CharacterController = () => {
   }, []);
 
   const calculateOrientation = ({ forward, backward, left, right }) => {
-    const angle = Math.PI / 4 / 8 ; // rotation normalizedSpeed (more divided => more smooth)
+    const angle = Math.PI / 4 / 7 ; // rotation normalizedSpeed (more divided => more smooth)
     const topLeftAngle = 3.927; // (225 * Math.PI / 180).toFixed(3)
     const bottomLeftAngle = 5.498; // (315 * Math.PI / 180).toFixed(3)
     const topRightAngle = 2.356; // (135 * Math.PI / 180).toFixed(3)

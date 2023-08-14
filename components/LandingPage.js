@@ -1,17 +1,17 @@
 import React, {useEffect, Suspense, useState} from 'react';
 import { Canvas } from "@react-three/fiber";
-import {OrbitControls, PerspectiveCamera, Sky} from "@react-three/drei";
+import {Cloud, OrbitControls, PerspectiveCamera, Sky, Sparkles, Stars} from "@react-three/drei";
 import CharacterController from "./CharacterController";
 
 import {Physics, RigidBody} from "@react-three/rapier";
 import {PokemonRoom} from "./PokemonRoom";
+import Navbar from "./NavBar";
 
 const LandingPage = () => {
   const [dpr, setDpr] = useState(0.5)
 
   return (
-    <div className="w-full h-screen">
-
+    <div className="w-full h-screen relative">
       <Canvas
         camera={{
           fov: 20,
@@ -33,6 +33,7 @@ const LandingPage = () => {
             <PokemonRoom/>
           </Physics>
         </Suspense>
+        <Stars/>
       </Canvas>
     </div>
   );
