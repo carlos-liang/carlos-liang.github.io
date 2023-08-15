@@ -151,10 +151,6 @@ const CharacterController = () => {
         movementY.onGround = true
       }
 
-      // if character falls off, respawn
-      let respawn = false;
-      if (characterBody.current.linvel().y < -20) respawn = true
-
       const linvelY = characterBody.current.linvel().y;
 
       const speed = movement.sprint ? sprintVelocity : velocity;
