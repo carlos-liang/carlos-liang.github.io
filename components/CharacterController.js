@@ -77,7 +77,7 @@ const CharacterController = () => {
   }, []);
 
   const calculateOrientation = ({forward, backward, left, right}) => {
-    const angle = Math.PI / 4 / 7; // rotation normalizedSpeed (more divided => more smooth)
+    const angle = Math.PI / 4 / 3; // rotation normalizedSpeed (more divided => more smooth)
     const topLeftAngle = 3.927; // (225 * Math.PI / 180).toFixed(3)
     const bottomLeftAngle = 5.498; // (315 * Math.PI / 180).toFixed(3)
     const topRightAngle = 2.356; // (135 * Math.PI / 180).toFixed(3)
