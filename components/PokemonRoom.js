@@ -1,7 +1,7 @@
 import React from 'react'
-import { useLoader} from "@react-three/fiber";
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { RigidBody } from "@react-three/rapier";
+import {useLoader} from "@react-three/fiber";
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader'
+import {RigidBody} from "@react-three/rapier";
 
 export function PokemonRoom(props) {
   const {nodes, materials} = useLoader(GLTFLoader, 'pokemon_fire_red_players_room/scene.gltf')
@@ -32,7 +32,9 @@ export function PokemonRoom(props) {
       <RigidBody type="fixed">
         <mesh geometry={nodes.bed_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       </RigidBody>
-      <mesh geometry={nodes.dresser_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+      <RigidBody type="fixed">
+        <mesh geometry={nodes.dresser_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+      </RigidBody>
       <RigidBody type="fixed">
         <mesh geometry={nodes.bookShelf_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       </RigidBody>
@@ -43,7 +45,7 @@ export function PokemonRoom(props) {
       <mesh geometry={nodes.stairs_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       <mesh geometry={nodes.wall_picture_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       <RigidBody type="fixed">
-      <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       </RigidBody>
       <mesh geometry={nodes.title_fireRed_material_0.geometry} material={materials.fireRed_material}/>
     </group>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AiFillGithub, AiFillLinkedin } from "react-icons/ai";
+import { TiHome } from "react-icons/ti";
 
 const Navbar = () => {
   return (
@@ -22,6 +23,11 @@ const Navbar = () => {
             <Link href='https://www.linkedin.com/in/carlosl97/' target='_blank' rel='noopener noreferrer'>
               <li className='lg:inline-flex lg:w-auto w-full px-3 py-2 rounded text-white font-bold items-center justify-center'>
                 <AiFillLinkedin size={20} />
+              </li>
+            </Link>
+            <Link href='/About'>
+              <li className='lg:inline-flex lg:w-auto w-full px-3 py-2 rounded text-white font-bold items-center justify-center'>
+                <TiHome size={20} />
               </li>
             </Link>
           </div>
