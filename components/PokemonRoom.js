@@ -150,9 +150,20 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
   );
 }
 
-function Computer({ geometry, material, heroRef }) {
+function Computer({ geometry, material, heroRef, onOpenCV }) {
   const [hovered, setHovered] = useState(false);
   const [inRange, setInRange] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key.toLowerCase() === 'e' && inRange) {
+        if (onOpenCV) onOpenCV();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [inRange, onOpenCV]);
 
   useEffect(() => {
     document.body.style.cursor = hovered ? 'pointer' : 'auto';
@@ -240,7 +251,7 @@ function VideoMaterial() {
   return <meshBasicMaterial map={texture} toneMapped={false} />;
 }
 
-export function PokemonRoom({ heroRef, ...props }) {
+export function PokemonRoom({ heroRef, onOpenCV, ...props }) {
   const {nodes, materials} = useLoader(GLTFLoader, 'pokemon_fire_red_players_room/scene.gltf')
 
   return (
@@ -260,7 +271,12 @@ export function PokemonRoom({ heroRef, ...props }) {
 
       {/* Computer with Interaction */}
       <RigidBody type="fixed">
-        <Computer geometry={nodes.Computer_fireRed_material_0.geometry} material={materials.fireRed_material} heroRef={heroRef} />
+        <Computer 
+            geometry={nodes.Computer_fireRed_material_0.geometry} 
+            material={materials.fireRed_material} 
+            heroRef={heroRef}
+            onOpenCV={onOpenCV}
+        />
       </RigidBody>
 
       <RigidBody type="fixed">

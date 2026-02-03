@@ -5,10 +5,12 @@ import { CapsuleCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from "three";
 import { Bmo } from "./Bmo";
 
-const CharacterController = () => {
+const CharacterController = ({ heroRef }) => {
   const characterBody = useRef();
   const character = useRef()
-  const [orientation, setOrientation] = useState(Math.PI);
+  const orientation = useRef(Math.PI);
+  const inAir = useRef(false);
+
   const [movement, setMovement] = useState({
     forward: false,
     backward: false,
@@ -16,21 +18,21 @@ const CharacterController = () => {
     right: false,
     sprint: false
   })
-  const [movementY] = useState(() => ({
-    positionOffsetY: 0.0,
-    velocityY: 0.0,
-    gravity: 0.5,
-    onGround: true,
-  }))
 
-  const velocity = 300;
-  const sprintVelocity = 600;
+  // Smoothing: Track current velocity
+  const currentVelocity = useRef({ x: 0, z: 0 });
+
+  // Adjusted constants for frame-rate independence and better scale
+  const velocity = 5;
+  const sprintVelocity = 10;
+
   const {nodes, materials, animations} = useGLTF('/bmo/scene.gltf')
   const {actions} = useAnimations(animations, character)
 
   let rotateQuaternion = new THREE.Quaternion();
 
   const handleKeyPress = useCallback((event) => {
+    if (event.repeat) return;
     switch (event.keyCode) {
       case 87: //w
         setMovement((prev) => ({...prev, forward: true}));
@@ -45,7 +47,12 @@ const CharacterController = () => {
         setMovement((prev) => ({...prev, right: true}));
         break;
       case 32: //space
-        movementY.onGround && ((movementY.velocityY = -6.0), (movementY.onGround = false))
+        if (!inAir.current && characterBody.current) {
+          const linvel = characterBody.current.linvel();
+          // Increased jump velocity from 5.0 to 10.0
+          characterBody.current.setLinvel({ x: linvel.x, y: 10.0, z: linvel.z });
+          inAir.current = true;
+        }
         break;
       case 16: //shift
         setMovement((prev) => ({...prev, sprint: true}));
@@ -67,138 +74,142 @@ const CharacterController = () => {
       case 68: //d
         setMovement((prev) => ({...prev, right: false}));
         break;
-      case 32: //space
-        movementY.velocityY < -3.0 && (movementY.velocityY = -3.0);
-        break;
       case 16: //left shift
         setMovement((prev) => ({...prev, sprint: false}));
         break;
     }
   }, []);
 
-  const calculateOrientation = ({forward, backward, left, right}) => {
-    const angle = Math.PI / 4 / 3; // rotation normalizedSpeed (more divided => more smooth)
-    const topLeftAngle = 3.927; // (225 * Math.PI / 180).toFixed(3)
-    const bottomLeftAngle = 5.498; // (315 * Math.PI / 180).toFixed(3)
-    const topRightAngle = 2.356; // (135 * Math.PI / 180).toFixed(3)
-    const bottomRightAngle = 0.785; // (45 * Math.PI / 180).toFixed(3)
-
-    let aTanAngle = Math.atan2(Math.sin(orientation), Math.cos(orientation));
-    aTanAngle = aTanAngle < 0 ? aTanAngle + Math.PI * 2 : aTanAngle;
-    aTanAngle = Number(aTanAngle.toFixed(3));
-    aTanAngle = aTanAngle == 0 ? Number((Math.PI * 2).toFixed(3)) : aTanAngle;
-
-    // Forward right
-    if (forward && !backward && !left && right && aTanAngle != topRightAngle) {
-      setOrientation((prevState) => prevState + angle * (aTanAngle > topRightAngle ? -1 : 1));
-    }
-
-    // Forward left
-    if (forward && !backward && left && !right && aTanAngle != topLeftAngle) {
-      setOrientation((prevState) => prevState + angle * (aTanAngle > topLeftAngle ? -1 : 1));
-    }
-
-    // Backward right
-    if (!forward && backward && !left && right && aTanAngle != bottomRightAngle) {
-      setOrientation((prevState) => prevState + angle * (aTanAngle > bottomRightAngle && aTanAngle < topLeftAngle ? -1 : 1));
-    }
-
-    // Backward left
-    if (!forward && backward && left && !right && aTanAngle != bottomLeftAngle) {
-      setOrientation((prevState) => prevState + angle * (aTanAngle < topRightAngle || aTanAngle > bottomLeftAngle ? -1 : 1));
-    }
-
-    // Right
-    if (!forward && !backward && !left && right && Math.sin(orientation) != 1) {
-      setOrientation((prevState) => prevState + angle * (Math.cos(orientation) > 0 ? 1 : -1));
-    }
-
-    // Left
-    if (!forward && !backward && left && !right && Math.sin(orientation) != -1) {
-      setOrientation((prevState) => prevState + angle * (Math.cos(orientation) > 0 ? -1 : 1));
-    }
-
-    // Forward
-    if (forward && !backward && !left && !right && Math.cos(orientation) != -1) {
-      setOrientation((prevState) => prevState + angle * (Math.sin(orientation) > 0 ? 1 : -1));
-    }
-
-    // Backward
-    if (!forward && backward && !left && !right && Math.cos(orientation) != 1) {
-      setOrientation((prevState) => prevState + angle * (Math.sin(orientation) > 0 ? -1 : 1));
-    }
-  }
-
   useFrame((state, delta) => {
-    if (movement.forward || movement.backward || movement.left || movement.right || !movementY.onGround || characterBody.current.linvel().y < -30) {
-      actions.Animation.play();
+    const isMoving = movement.forward || movement.backward || movement.left || movement.right;
+
+    // Check ground status roughly by velocity
+    const linvel = characterBody.current.linvel();
+    if (Math.abs(linvel.y) < 0.1) {
+      inAir.current = false;
+    } else {
+      inAir.current = true;
+    }
+
+    // Determine if we should be simulating movement or stopping
+    const hasVelocity = Math.abs(currentVelocity.current.x) > 0.05 || Math.abs(currentVelocity.current.z) > 0.05;
+
+    if (isMoving || inAir.current || linvel.y < -30 || hasVelocity) {
+      if (actions.Animation && (isMoving || inAir.current)) {
+        actions.Animation.play();
+        // Speed up animation to match movement velocity
+        // Increased timeScale to match faster movement
+        actions.Animation.timeScale = movement.sprint ? 4.0 : 2.5;
+      }
+
+      /**
+       * Model Movement (Camera Relative)
+       */
+      const speed = movement.sprint ? sprintVelocity : velocity;
+
+      // Get camera direction
+      const camera = state.camera;
+      // Forward vector (projected to XZ plane)
+      const forward = new THREE.Vector3(0, 0, -1);
+      forward.applyQuaternion(camera.quaternion);
+      forward.y = 0;
+      forward.normalize();
+
+      // Right vector
+      const right = new THREE.Vector3(1, 0, 0);
+      right.applyQuaternion(camera.quaternion);
+      right.y = 0;
+      right.normalize();
+
+      const moveDir = new THREE.Vector3(0, 0, 0);
+      if (movement.forward) moveDir.add(forward);
+      if (movement.backward) moveDir.sub(forward);
+      if (movement.left) moveDir.sub(right);
+      if (movement.right) moveDir.add(right);
+
+      if (moveDir.lengthSq() > 0) moveDir.normalize();
+
+      let targetX = moveDir.x * speed;
+      let targetZ = moveDir.z * speed;
+
+      // Smooth velocity (Lerp)
+      const smoothFactor = 0.1;
+      currentVelocity.current.x = THREE.MathUtils.lerp(currentVelocity.current.x, targetX, smoothFactor);
+      currentVelocity.current.z = THREE.MathUtils.lerp(currentVelocity.current.z, targetZ, smoothFactor);
 
       /**
        * Model orientation
        */
-      calculateOrientation(movement);
-      rotateQuaternion.setFromEuler(new THREE.Euler(0, orientation, 0));
-      characterBody.current.setRotation(rotateQuaternion);
-
-      /**
-       * Model Movement
-       */
-      movementY.velocityY += movementY.gravity
-      movementY.positionOffsetY -= movementY.velocityY
-      if (movementY.positionOffsetY < 0) {
-        movementY.positionOffsetY = 0
-        movementY.velocityY = 0.0
-        movementY.onGround = true
+      if (isMoving) {
+          // Calculate target angle from velocity
+          // Note: atan2(x, z) gives 0 at +Z (South), PI at -Z (North), PI/2 at +X (East).
+          // Three.js standard: 0 is usually looking down -Z if model is set up that way.
+          // BMO seems to face -Z by default based on previous code.
+          // Let's test standard atan2(x, z).
+          const angle = Math.atan2(currentVelocity.current.x, currentVelocity.current.z);
+          
+          // Smooth rotation logic
+          let angleDiff = angle - orientation.current;
+          // Normalize angle difference to -PI to PI
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+          
+          orientation.current += angleDiff * 0.15; // Increased turning speed slightly
+          
+          rotateQuaternion.setFromEuler(new THREE.Euler(0, orientation.current, 0));
+          characterBody.current.setRotation(rotateQuaternion);
       }
 
-      const linvelY = characterBody.current.linvel().y;
+      // Apply horizontal velocity, preserve vertical velocity (gravity)
+      characterBody.current.setLinvel({
+        x: currentVelocity.current.x,
+        y: linvel.y,
+        z: currentVelocity.current.z
+      });
 
-      const speed = movement.sprint ? sprintVelocity : velocity;
-      const nbOfKeysPressed = Object.values(movement).reduce((count, value) => count + value, 0);
-      const normalizedSpeed = nbOfKeysPressed == 1 ? speed * delta : Math.sqrt(2) * (speed / 2) * delta;
-
-      const impulse = {
-        x: movement.left ? -normalizedSpeed : movement.right ? normalizedSpeed : 0,
-        y: linvelY + (movementY.positionOffsetY / 100),
-        z: movement.forward ? -normalizedSpeed : movement.backward ? normalizedSpeed : 0
-      };
-      characterBody.current.setLinvel(impulse);
-
-      /**
-       * Camera orientation
-       */
-      // const characterPosition = characterBody.current.translation();
-      //
-      // const cameraPosition = new THREE.Vector3();
-      // cameraPosition.copy(characterPosition);
-      // cameraPosition.z += 5;
-      // cameraPosition.y += 2.5;
-      //
-      // const cameraTarget = new THREE.Vector3();
-      // cameraTarget.copy(characterPosition);
-      // cameraTarget.y += 0.25;
-      //
-      // state.camera.position.copy(cameraPosition);
-      // state.camera.lookAt(cameraTarget);
     } else {
-      actions.Animation.fadeOut(0.2);
-      actions.Animation.reset().fadeIn(0.2).play();
+      // Idle state
+      if (actions.Animation) {
+        actions.Animation.fadeOut(0.2);
+        actions.Animation.reset().fadeIn(0.2).play();
+        actions.Animation.timeScale = 1;
+      }
     }
 
     if (characterBody.current.translation().y < -20) {
       characterBody.current.setTranslation({x: -2.0, y: 1.0, z: 2.2})
+      characterBody.current.setLinvel({ x: 0, y: 0, z: 0 })
+    }
+
+    // Update heroRef with current position for other components to use
+    if (heroRef && characterBody.current) {
+      const t = characterBody.current.translation();
+      heroRef.current.set(t.x, t.y, t.z);
     }
   })
 
   useEffect(() => {
+    // Reset movement on window blur to prevent stuck keys
+    const handleBlur = () => {
+      setMovement({
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false
+      });
+    };
+
+    window.addEventListener("blur", handleBlur);
     document.addEventListener("keydown", handleKeyPress);
     document.addEventListener("keyup", handleKeyUp);
 
     return () => {
+      window.removeEventListener("blur", handleBlur);
       document.removeEventListener("keydown", handleKeyPress);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  });
+  }, [handleKeyPress, handleKeyUp]);
 
   return (
     <RigidBody
@@ -208,6 +219,8 @@ const CharacterController = () => {
       position={[-2, 1, 2.2]}
       restitution={0.2}
       friction={1}
+      gravityScale={2.5}
+      ccd={true} // Continuous Collision Detection prevents falling through floor at high speeds/lag
     >
       <group ref={character}>
         <Bmo/>

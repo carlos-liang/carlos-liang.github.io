@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TiHome } from "react-icons/ti";
-import { SiGithub, SiLinkedin } from "react-icons/si";
+import { SiLinkedin } from "react-icons/si";
 
 const Navbar = () => {
   return (
@@ -15,18 +15,13 @@ const Navbar = () => {
         </Link>
         <div className='absolute right-0 mr-10 w-full lg:flex-grow lg:w-auto'>
           <div className='lg:inline-flex lg:flex-row lg:ml-auto lg:w-auto w-full lg:items-center items-start flex flex-col lg:h-auto'>
-            <Link href='https://github.com/carlos-liang' target='_blank' rel='noopener noreferrer'>
-              <li className='lg:inline-flex lg:w-auto w-full rounded text-white font-bold items-center justify-center mr-5 hover:text-blue-900 transition ease-in-out delay-150'>
-                <SiGithub size={21}/>
-              </li>
-            </Link>
             <Link href='https://www.linkedin.com/in/carlosl97/' target='_blank' rel='noopener noreferrer'>
-              <li className='lg:inline-flex lg:w-auto w-full rounded text-white font-bold items-center justify-center mr-5 hover:text-[#0077B5] hover:bg-white transition ease-in-out delay-150'>
+              <li className='lg:inline-flex lg:w-auto w-full rounded text-white font-bold items-center justify-center mr-5 hover:text-[#0077B5] hover:bg-white transition duration-75'>
                 <SiLinkedin  size={21}/>
               </li>
             </Link>
             <Link href='/About'>
-              <li className='lg:inline-flex lg:w-auto w-full rounded text-white font-bold items-center justify-center hover:text-gray-700 transition ease-in-out delay-150'>
+              <li className='lg:inline-flex lg:w-auto w-full rounded text-white font-bold items-center justify-center hover:text-gray-700 transition ease-in-out'>
                 <TiHome size={21}/>
               </li>
             </Link>
@@ -38,4 +33,3 @@ const Navbar = () => {
 }
 
 export default Navbar;
-
