@@ -221,6 +221,78 @@ function Computer({ geometry, material, heroRef, onOpenCV }) {
   )
 }
 
+function Clipboard({ geometry, material, heroRef, onOpenLinkedIn }) {
+  const [hovered, setHovered] = useState(false);
+  const [inRange, setInRange] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key.toLowerCase() === 'e' && inRange) {
+        if (onOpenLinkedIn) onOpenLinkedIn();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [inRange, onOpenLinkedIn]);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered ? 'pointer' : 'auto';
+    return () => { document.body.style.cursor = 'auto' };
+  }, [hovered]);
+
+  const { center, size } = useMemo(() => {
+    if (!geometry) return { center: [0, 0, 0], size: [0, 0, 0] };
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    box.getCenter(center);
+    box.getSize(size);
+    return { center, size };
+  }, [geometry]);
+
+  useFrame(() => {
+    if (heroRef && heroRef.current) {
+      const dist = heroRef.current.distanceTo(center);
+      if (dist < 2.5) {
+        if (!inRange) setInRange(true);
+      } else {
+        if (inRange) {
+          setInRange(false);
+        }
+      }
+    }
+  });
+
+  return (
+    <group>
+      <mesh
+        geometry={geometry}
+        material={material}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onOpenLinkedIn) onOpenLinkedIn();
+        }}
+        onPointerOver={(e) => { e.stopPropagation(); setHovered(true) }}
+        onPointerOut={(e) => { e.stopPropagation(); setHovered(false) }}
+      />
+      <ObjectGlow geometry={geometry} center={center} />
+
+      {inRange && (
+        <Html position={[center.x, center.y, center.z]} center distanceFactor={8}>
+          <div className="bg-black/80 text-white px-3 py-1.5 rounded-full text-sm font-bold border border-white/50 backdrop-blur-sm shadow-lg pointer-events-none select-none flex items-center gap-2 whitespace-nowrap">
+            Check Clipboard
+            <span className="text-xs text-gray-300 ml-1">
+              (E)
+            </span>
+          </div>
+        </Html>
+      )}
+    </group>
+  )
+}
+
 function VideoMaterial() {
   // Using a sample video from local public folder
   const texture = useVideoTexture("/new-jeans-right-now.mp4", {
@@ -251,7 +323,7 @@ function VideoMaterial() {
   return <meshBasicMaterial map={texture} toneMapped={false} />;
 }
 
-export function PokemonRoom({ heroRef, onOpenCV, ...props }) {
+export function PokemonRoom({ heroRef, onOpenCV, onOpenLinkedIn, ...props }) {
   const {nodes, materials} = useLoader(GLTFLoader, 'pokemon_fire_red_players_room/scene.gltf')
 
   return (
@@ -306,7 +378,7 @@ export function PokemonRoom({ heroRef, onOpenCV, ...props }) {
         <mesh geometry={nodes.railing_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       </RigidBody>
       <mesh geometry={nodes.stairs_fireRed_material_0.geometry} material={materials.fireRed_material}/>
-      <mesh geometry={nodes.wall_picture_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+      <Clipboard geometry={nodes.wall_picture_fireRed_material_0.geometry} material={materials.fireRed_material} heroRef={heroRef} onOpenLinkedIn={onOpenLinkedIn}/>
       <RigidBody type="fixed">
         <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={materials.fireRed_material}/>
       </RigidBody>
