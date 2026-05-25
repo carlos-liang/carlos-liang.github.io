@@ -5,11 +5,26 @@ import { CapsuleCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from "three";
 import { Bmo } from "./Bmo";
 
-const CharacterController = ({ heroRef }) => {
+const CharacterController = ({ heroRef, inputLocked }) => {
   const characterBody = useRef();
   const character = useRef()
   const orientation = useRef(Math.PI);
   const inAir = useRef(false);
+
+  // Procedural walk state (grounded & natural)
+  const stepPhase = useRef(0);   // accumulates with distance travelled, drives the bob
+  const leanAmt = useRef(0);     // smoothed forward-lean angle
+  const walkWeight = useRef(0);  // 0 = standing, 1 = walking; blends the clip + bob in/out
+
+  // Procedural jump state (squash & stretch)
+  const prevVelY = useRef(0);    // last frame's vertical speed, for landing detection
+  const landSquash = useRef(0);  // squash impulse, springs back to 0
+  const airStretch = useRef(0);  // smoothed airborne stretch
+
+  const inputLockedRef = useRef(inputLocked);
+  useEffect(() => {
+    inputLockedRef.current = inputLocked;
+  }, [inputLocked]);
 
   const [movement, setMovement] = useState({
     forward: false,
@@ -26,12 +41,39 @@ const CharacterController = ({ heroRef }) => {
   const velocity = 5;
   const sprintVelocity = 10;
 
+  // Walk-feel tuning (grounded & natural)
+  const ANIM_SPEED_K = 0.6;       // morph playback per unit ground speed (kills foot-slide)
+  const ANIM_MAX_TIMESCALE = 6;   // cap so sprinting doesn't go frantic
+  const STEP_FREQ = 2.0;          // step cadence per unit ground speed
+  const BOB_HEIGHT = 0.1;         // vertical lift at the top of each step
+  const MAX_LEAN = 0.14;          // forward lean (radians) at full sprint
+  const LEAN_SIGN = -1;           // -1 leans into travel; flip to +1 if it leans backward
+
+  // Jump-feel tuning (grounded & natural)
+  const JUMP_VELOCITY = 10.0;     // takeoff speed
+  const FALL_BOOST = 22;          // extra downward accel while falling (kills the float)
+  const MAX_FALL_SPEED = -30;     // terminal fall speed clamp
+  const STRETCH_K = 0.012;        // vertical stretch per unit vertical speed
+  const MAX_STRETCH = 0.16;       // cap on airborne stretch
+  const LAND_SQUASH = 0.22;       // max squash on a hard landing
+
   const {nodes, materials, animations} = useGLTF('/bmo/scene.gltf')
   const {actions} = useAnimations(animations, character)
+
+  // Keep the single walk clip always running; we control visibility via weight.
+  useEffect(() => {
+    const a = actions.Animation;
+    if (a) {
+      a.reset();
+      a.play();
+      a.setEffectiveWeight(0); // start standing still
+    }
+  }, [actions]);
 
   let rotateQuaternion = new THREE.Quaternion();
 
   const handleKeyPress = useCallback((event) => {
+    if (inputLockedRef.current) return;
     if (event.repeat) return;
     switch (event.keyCode) {
       case 87: //w
@@ -49,8 +91,7 @@ const CharacterController = ({ heroRef }) => {
       case 32: //space
         if (!inAir.current && characterBody.current) {
           const linvel = characterBody.current.linvel();
-          // Increased jump velocity from 5.0 to 10.0
-          characterBody.current.setLinvel({ x: linvel.x, y: 10.0, z: linvel.z });
+          characterBody.current.setLinvel({ x: linvel.x, y: JUMP_VELOCITY, z: linvel.z });
           inAir.current = true;
         }
         break;
@@ -61,6 +102,7 @@ const CharacterController = ({ heroRef }) => {
   }, []);
 
   const handleKeyUp = useCallback((event) => {
+    if (inputLockedRef.current) return;
     switch (event.keyCode) {
       case 87: //w
         setMovement((prev) => ({...prev, forward: false}));
@@ -95,13 +137,6 @@ const CharacterController = ({ heroRef }) => {
     const hasVelocity = Math.abs(currentVelocity.current.x) > 0.05 || Math.abs(currentVelocity.current.z) > 0.05;
 
     if (isMoving || inAir.current || linvel.y < -30 || hasVelocity) {
-      if (actions.Animation && (isMoving || inAir.current)) {
-        actions.Animation.play();
-        // Speed up animation to match movement velocity
-        // Increased timeScale to match faster movement
-        actions.Animation.timeScale = movement.sprint ? 4.0 : 2.5;
-      }
-
       /**
        * Model Movement (Camera Relative)
        */
@@ -160,20 +195,64 @@ const CharacterController = ({ heroRef }) => {
           characterBody.current.setRotation(rotateQuaternion);
       }
 
-      // Apply horizontal velocity, preserve vertical velocity (gravity)
+      // Less-floaty arc: pile on extra gravity while falling, clamped to a terminal speed
+      let velY = linvel.y;
+      if (velY < 0) velY = Math.max(velY - FALL_BOOST * delta, MAX_FALL_SPEED);
+
+      // Apply horizontal velocity, keep the (adjusted) vertical velocity
       characterBody.current.setLinvel({
         x: currentVelocity.current.x,
-        y: linvel.y,
+        y: velY,
         z: currentVelocity.current.z
       });
 
-    } else {
-      // Idle state
-      if (actions.Animation) {
-        actions.Animation.fadeOut(0.2);
-        actions.Animation.reset().fadeIn(0.2).play();
-        actions.Animation.timeScale = 1;
+    }
+
+    /**
+     * Walk animation + procedural motion (grounded & natural)
+     * Drives the morph "walk" by real ground speed (no foot-slide), and adds a
+     * small per-step bob plus a slight lean into the direction of travel.
+     */
+    const horizontalSpeed = Math.hypot(currentVelocity.current.x, currentVelocity.current.z);
+    const walkAction = actions.Animation;
+    if (walkAction) {
+      // Blend the walk clip in/out based on actual ground speed
+      const targetWeight = horizontalSpeed > 0.2 ? 1 : 0;
+      walkWeight.current = THREE.MathUtils.lerp(walkWeight.current, targetWeight, 0.15);
+      walkAction.setEffectiveWeight(walkWeight.current);
+      // Sync playback speed to ground speed so the gait matches distance covered
+      walkAction.timeScale = Math.min(horizontalSpeed * ANIM_SPEED_K, ANIM_MAX_TIMESCALE);
+    }
+
+    if (character.current) {
+      // Vertical bob: a lift at the top of each step, faded by how much we're walking
+      stepPhase.current += delta * horizontalSpeed * STEP_FREQ;
+      character.current.position.y = Math.abs(Math.sin(stepPhase.current)) * BOB_HEIGHT * walkWeight.current;
+
+      // Lean into the direction of travel, proportional to speed
+      const targetLean = (horizontalSpeed / sprintVelocity) * MAX_LEAN;
+      leanAmt.current = THREE.MathUtils.lerp(leanAmt.current, targetLean, 0.1);
+      character.current.rotation.x = leanAmt.current * LEAN_SIGN;
+
+      /**
+       * Squash & stretch (jump): elongate while moving through the air, then a
+       * quick squash on impact that springs back out — sells weight and a real hop.
+       */
+      const vy = linvel.y;
+      const targetStretch = Math.abs(vy) > 1 ? Math.min(Math.abs(vy) * STRETCH_K, MAX_STRETCH) : 0;
+      airStretch.current = THREE.MathUtils.lerp(airStretch.current, targetStretch, 0.2);
+
+      // Landing impact: was falling fast last frame, now suddenly not -> squash, scaled by impact
+      if (prevVelY.current < -3 && vy > -1) {
+        landSquash.current = Math.min(Math.abs(prevVelY.current) * 0.022, LAND_SQUASH);
       }
+      landSquash.current = THREE.MathUtils.lerp(landSquash.current, 0, 0.15);
+      prevVelY.current = vy;
+
+      // Tall & thin in the air, short & wide on impact (volume roughly preserved)
+      const sy = 1 + airStretch.current - landSquash.current;
+      const sxz = 1 - (airStretch.current - landSquash.current) * 0.5;
+      character.current.scale.set(sxz, sy, sxz);
     }
 
     if (characterBody.current.translation().y < -20) {
@@ -187,6 +266,18 @@ const CharacterController = ({ heroRef }) => {
       heroRef.current.set(t.x, t.y, t.z);
     }
   })
+
+  useEffect(() => {
+    if (inputLocked) {
+      setMovement({
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false,
+      });
+    }
+  }, [inputLocked]);
 
   useEffect(() => {
     // Reset movement on window blur to prevent stuck keys
