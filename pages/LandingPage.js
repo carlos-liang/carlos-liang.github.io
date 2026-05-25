@@ -5,109 +5,39 @@ import CharacterController from "../components/CharacterController";
 import { Physics } from "@react-three/rapier";
 import { PokemonRoom } from "../components/PokemonRoom";
 import DialogBox from "../components/DialogBox";
+import Win98Desktop from "../components/win98/Win98Desktop";
+import Win98Boot from "../components/win98/Win98Boot";
 import * as THREE from 'three';
+import CameraRig from "../components/CameraRig";
 
-function LinkedInDialog({ onClose }) {
-  const text = "Connect with me on LinkedIn:";
-  const [displayedText, setDisplayedText] = useState('');
-  const [showLink, setShowLink] = useState(false);
-  const typeSpeed = 30;
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    let charIndex = 0;
-    const typeChar = () => {
-      if (charIndex < text.length) {
-        setDisplayedText(text.slice(0, charIndex + 1));
-        charIndex++;
-        timerRef.current = setTimeout(typeChar, typeSpeed);
-      } else {
-        setShowLink(true);
-      }
-    };
-    timerRef.current = setTimeout(typeChar, typeSpeed);
-    return () => clearTimeout(timerRef.current);
-  }, []);
-
-  const handleClick = () => {
-    if (!showLink) {
-        clearTimeout(timerRef.current);
-        setDisplayedText(text);
-        setShowLink(true);
-    } else {
-        onClose();
-    }
-  };
-
-  return (
-    <div 
-        className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-[90%] max-w-2xl z-50 select-none cursor-pointer"
-        onClick={handleClick}
-    >
-        {/* Outer Container for spacing/shadow if needed */}
-        <div className="relative">
-            {/* The Dialog Box */}
-            <div 
-                className="bg-white border-[5px] border-[#6faedd] rounded-[30px] px-6 pt-4 pb-6 min-h-[100px] flex flex-col justify-start items-start"
-                style={{
-                    imageRendering: 'pixelated',
-                    boxShadow: '0 0 0 2px #376888, 0 4px 0 rgba(0,0,0,0.1)' 
-                }}
-            >
-                <p 
-                    className="text-[#333333] text-base leading-relaxed m-0 w-full"
-                    style={{ 
-                        fontFamily: '"PokemonGb", monospace',
-                        textShadow: '1px 1px 0 #ddd' 
-                    }}
-                >
-                    {displayedText}
-                    {showLink && (
-                        <svg 
-                            width="16" 
-                            height="16" 
-                            viewBox="0 0 16 16" 
-                            className="inline-block ml-2 align-baseline animate-bounce"
-                            style={{ imageRendering: 'pixelated' }}
-                        >
-                             {/* Red Body */}
-                            <path 
-                                d="M1 4h14v2h-2v2h-2v2h-2v2h-2v-2h-2v-2h-2v-2h-2z" 
-                                fill="#FF0000" 
-                            />
-                            {/* Darker Shadow/Border on right/bottom edges */}
-                            <path 
-                                d="M15 4v2h-2v2h-2v2h-2v2h-2v2h-1v-2h2v-2h2v-2h2v-2h1z" 
-                                fill="#8B0000" 
-                            />
-                        </svg>
-                    )}
-                </p>
-                {showLink && (
-                  <a 
-                      href="https://www.linkedin.com/in/carlosl97/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-base break-all hover:underline mt-2 block"
-                      style={{ fontFamily: '"PokemonGb", monospace' }}
-                      onClick={(e) => e.stopPropagation()} 
-                  >
-                      https://www.linkedin.com/in/carlosl97/
-                  </a>
-                )}
-            </div>
-        </div>
-    </div>
-  );
-}
 
 const LandingPage = () => {
   const [dpr, setDpr] = useState(1.5)
   const [showDialog, setShowDialog] = useState(true);
-  const [showCV, setShowCV] = useState(false);
-  const [showLinkedIn, setShowLinkedIn] = useState(false);
   // Shared reference for character position
   const heroRef = useRef(new THREE.Vector3());
+  // The Win98 desktop panel's pixel rect is written imperatively by CameraRig each frame.
+  const panelRef = useRef(null);
+  const [computerState, setComputerState] = useState("room");
+  const [zoomTarget, setZoomTarget] = useState(null);
+
+  const enterComputer = (target) => {
+    if (target) setZoomTarget(target);
+    setComputerState((s) => (s === "room" ? "zooming-in" : s));
+  };
+  const exitComputer = () => {
+    setComputerState((s) => (s === "desktop" ? "zooming-out" : s));
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setComputerState((s) => (s === "desktop" ? "zooming-out" : s));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="w-full h-screen relative">
@@ -123,6 +53,13 @@ const LandingPage = () => {
         legacy="false"
         dpr={dpr}
       >
+        <CameraRig
+          computerState={computerState}
+          zoomTarget={zoomTarget}
+          panelRef={panelRef}
+          onZoomInDone={() => setComputerState("booting")}
+          onZoomOutDone={() => setComputerState("room")}
+        />
         <directionalLight
           intensity={0.7}
           color={'#FFFFED'}
@@ -135,25 +72,24 @@ const LandingPage = () => {
           shadow-camera-left={-20}
         />
         <ambientLight intensity={0.2} />
-        <OrbitControls/>
+        <OrbitControls enabled={computerState === "room"} />
 
         <Suspense fallback={null}>
           <Physics>
-            <CharacterController heroRef={heroRef} />
-            <pointLight position={[5, 5, 5]}/>
-            <PokemonRoom 
-                heroRef={heroRef} 
-                onOpenCV={() => setShowCV(true)} 
-                onOpenLinkedIn={() => setShowLinkedIn(true)}
+            <CharacterController
+              heroRef={heroRef}
+              inputLocked={computerState !== "room"}
             />
+            <pointLight position={[5, 5, 5]}/>
+            <PokemonRoom heroRef={heroRef} onEnterComputer={enterComputer} />
           </Physics>
         </Suspense>
         <Stars/>
       </Canvas>
 
-      {/* UI Overlay */}
-      {showDialog && (
-        <DialogBox 
+      {/* UI Overlay (hidden while using the computer) */}
+      {showDialog && computerState === "room" && (
+        <DialogBox
             messages={[
                 "Welcome to my portfolio!",
                 "Use WASD to move and E to interact with objects."
@@ -162,34 +98,40 @@ const LandingPage = () => {
         />
       )}
 
-      {/* LinkedIn Overlay */}
-      {showLinkedIn && (
-        <LinkedInDialog onClose={() => setShowLinkedIn(false)} />
-      )}
-
-      {/* CV Overlay */}
-      {showCV && (
-        <div 
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 md:p-8"
-            onClick={() => setShowCV(false)}
+      {(computerState === "booting" ||
+        computerState === "desktop" ||
+        computerState === "zooming-out") && (
+        <div
+          className="absolute inset-0 z-50"
+          style={{
+            pointerEvents: "none",
+            opacity: computerState === "zooming-out" ? 0 : 1,
+            transition: "opacity 0.45s ease",
+          }}
         >
-            <div 
-                className="relative w-full max-w-5xl h-[90vh] bg-white rounded shadow-2xl overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button 
-                    onClick={() => setShowCV(false)}
-                    className="absolute top-2 right-4 z-10 text-gray-500 hover:text-gray-800 text-4xl leading-none"
-                    aria-label="Close"
-                >
-                    &times;
-                </button>
-                <iframe 
-                    src="/Carlos Liang - CV.pdf" 
-                    className="w-full h-full border-none" 
-                    title="CV"
-                />
-            </div>
+          {/* Screen panel — pinned over the monitor's glass by CameraRig (which
+              writes left/top/width/height every frame), overscanned a little so
+              the desktop covers the grey casing instead of stopping at the glass. */}
+          <div
+            ref={panelRef}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: 0,
+              height: 0,
+              overflow: "hidden",
+              pointerEvents: computerState === "zooming-out" ? "none" : "auto",
+            }}
+          >
+            {computerState === "booting" && (
+              <Win98Boot onDone={() => setComputerState("desktop")} />
+            )}
+            {(computerState === "desktop" ||
+              computerState === "zooming-out") && (
+              <Win98Desktop onShutDown={exitComputer} />
+            )}
+          </div>
         </div>
       )}
     </div>

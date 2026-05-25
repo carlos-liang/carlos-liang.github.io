@@ -6,7 +6,7 @@ const Navbar = () => {
       <nav className='absolute flex items-center flex-wrap p-3 px-16 z-50 w-full'>
         <Link href='/'>
           <li className='inline-flex items-center p-2 mr-4 '>
-            <span className='text-xl text-white font-bold tracking-wide'>
+            <span className='text-white font-bold tracking-wide' style={{ fontFamily: 'monospace', fontSize: '1.6rem' }}>
               Carlos Liang
             </span>
           </li>

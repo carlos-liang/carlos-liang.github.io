@@ -1,4 +1,5 @@
 import "../styles/globals.css"
+import "../styles/win98-scoped.css"
 import Head from "next/head"
 import Navbar from "../components/NavBar";
 
