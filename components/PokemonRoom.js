@@ -293,6 +293,7 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
 function Computer({ geometry, material, heroRef, onEnterComputer }) {
   const [hovered, setHovered] = useState(false);
   const [inRange, setInRange] = useState(false);
+  const [hasBeenUsed, setHasBeenUsed] = useState(false);
 
   const { center, size, screen } = useMemo(() => {
     if (!geometry)
@@ -321,7 +322,10 @@ function Computer({ geometry, material, heroRef, onEnterComputer }) {
       if (e.key.toLowerCase() === 'e' && inRange) {
         // Hand the camera rig the measured screen plane so it can frame the
         // monitor glass head-on and pin the Win98 desktop panel to it.
-        if (onEnterComputer && screen) onEnterComputer(screen);
+        if (onEnterComputer && screen) {
+          setHasBeenUsed(true);
+          onEnterComputer(screen);
+        }
       }
     };
 
@@ -357,8 +361,8 @@ function Computer({ geometry, material, heroRef, onEnterComputer }) {
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true) }}
         onPointerOut={(e) => { e.stopPropagation(); setHovered(false) }}
       />
-      {/* White Outline/Glow always visible */}
-      <ObjectGlow geometry={geometry} center={center} />
+      {/* Stop highlighting the computer after the player has used it. */}
+      {!hasBeenUsed && <ObjectGlow geometry={geometry} center={center} />}
 
       {(inRange || hovered) && (
         <Html position={[center.x, center.y + size.y, center.z]} center distanceFactor={8}>
