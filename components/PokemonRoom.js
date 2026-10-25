@@ -5,6 +5,146 @@ import {RigidBody} from "@react-three/rapier";
 import { useVideoTexture, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
+const FIRE_RED_PALETTE = [
+  // Floor: move the brown parquet range toward the game's olive-gold floor.
+  ['#946F2E', '#8F8536'],
+  ['#A17535', '#9B9039'],
+  ['#956E40', '#978D45'],
+  ['#8C6E30', '#897F32'],
+  ['#A09030', '#9E9435'],
+  ['#A89040', '#A69C3F'],
+  ['#B09348', '#AAA043'],
+  ['#C09448', '#B0A543'],
+  ['#C0B048', '#BEB34A'],
+  ['#D0C068', '#CEC45F'],
+  ['#E0D078', '#DDD36D'],
+  ['#F0E890', '#EEE783'],
+
+  // Rug and green furniture: cleaner, slightly cooler FireRed greens.
+  ['#54A768', '#4EAA62'],
+  ['#68C068', '#60C873'],
+  ['#8EE5A1', '#91E7A7'],
+
+  // Walls and warm neutrals: pale green-cream rather than flat beige.
+  ['#979784', '#9EA88B'],
+  ['#B0B0A0', '#B7C0AA'],
+  ['#C3BCA8', '#C2CBAF'],
+  ['#D0D0A8', '#D0D9B1'],
+
+  // Blue trims and furniture accents.
+  ['#4165AD', '#416FC0'],
+  ['#5090C0', '#579CCB'],
+  ['#98D0F8', '#9FD8F2'],
+
+  // Replace purple-brown outlines with the cooler blue-charcoal reference.
+  ['#383654', '#3D465C'],
+  ['#3E3368', '#414B61'],
+  ['#3F3D5D', '#424A61'],
+  ['#434361', '#465067'],
+  ['#443C68', '#444E68'],
+  ['#505068', '#505A6D'],
+  ['#585870', '#586276'],
+  ['#616576', '#626C7E'],
+  ['#635678', '#5D647A'],
+
+  // FireRed salmon used by the stair rug and wall clipboard.
+  ['#E08860', '#FF8373'],
+];
+
+function shaderColor(hex) {
+  const channelToLinear = (value) => {
+    const srgb = value / 255;
+    return srgb <= 0.04045
+      ? srgb / 12.92
+      : Math.pow((srgb + 0.055) / 1.055, 2.4);
+  };
+  const value = Number.parseInt(hex.slice(1), 16);
+  const red = channelToLinear((value >> 16) & 255);
+  const green = channelToLinear((value >> 8) & 255);
+  const blue = channelToLinear(value & 255);
+  return `vec3(${red.toFixed(7)}, ${green.toFixed(7)}, ${blue.toFixed(7)})`;
+}
+
+function shaderDisplayColor(hex) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const red = ((value >> 16) & 255) / 255;
+  const green = ((value >> 8) & 255) / 255;
+  const blue = (value & 255) / 255;
+  return `vec3(${red.toFixed(7)}, ${green.toFixed(7)}, ${blue.toFixed(7)})`;
+}
+
+function createFireRedMaterial(sourceMaterial, normalizeFloorTiles = false) {
+  const material = sourceMaterial.clone();
+  const comparisons = FIRE_RED_PALETTE.map(
+    ([source, target]) =>
+      `if (distance(color, ${shaderColor(source)}) < 0.002) return ${shaderColor(target)};`
+  ).join('\n  ');
+  const floorNormalization = normalizeFloorTiles
+    ? `if (distance(color, ${shaderColor('#C09448')}) < 0.002 || distance(color, ${shaderColor('#B09348')}) < 0.002) return ${shaderColor('#C0B048')};
+  if (distance(color, ${shaderColor('#A17535')}) < 0.002 || distance(color, ${shaderColor('#8C6E30')}) < 0.002) return ${shaderColor('#A09030')};
+  if (distance(color, ${shaderColor('#866416')}) < 0.002 || distance(color, ${shaderColor('#715416')}) < 0.002) return ${shaderColor('#867616')};
+  if (distance(color, ${shaderColor('#635678')}) < 0.002) return ${shaderColor('#787878')};`
+    : '';
+  const floorMaskDeclarations = normalizeFloorTiles
+    ? `float fireRedFloorBase = 0.0;
+float fireRedFloorShade = 0.0;
+float fireRedFloorLine = 0.0;
+float fireRedFloorGrout = 0.0;`
+    : '';
+  const floorMaskCapture = normalizeFloorTiles
+    ? `fireRedFloorBase = distance(diffuseColor.rgb, ${shaderColor('#C0B048')}) < 0.002 ? 1.0 : 0.0;
+fireRedFloorShade = distance(diffuseColor.rgb, ${shaderColor('#A09030')}) < 0.002 ? 1.0 : 0.0;
+fireRedFloorLine = distance(diffuseColor.rgb, ${shaderColor('#867616')}) < 0.002 ? 1.0 : 0.0;
+fireRedFloorGrout = distance(diffuseColor.rgb, ${shaderColor('#787878')}) < 0.002 ? 1.0 : 0.0;`
+    : '';
+  const floorFinalColors = normalizeFloorTiles
+    ? `if (fireRedFloorBase > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#C0B048')};
+if (fireRedFloorShade > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#A09030')};
+if (fireRedFloorLine > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#867616')};
+if (fireRedFloorGrout > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#787878')};`
+    : '';
+
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        `vec3 normalizeFireRedFloor(vec3 color) {
+  ${floorNormalization}
+  return color;
+}
+
+vec3 applyFireRedPalette(vec3 color) {
+  ${comparisons}
+  return color;
+}
+
+float fireRedOrangeAccent = 0.0;
+${floorMaskDeclarations}
+
+void main() {`
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+diffuseColor.rgb = normalizeFireRedFloor(diffuseColor.rgb);
+${floorMaskCapture}
+fireRedOrangeAccent = distance(diffuseColor.rgb, ${shaderColor('#E08860')}) < 0.002 ? 1.0 : 0.0;
+diffuseColor.rgb = applyFireRedPalette(diffuseColor.rgb);`
+      )
+      .replace(
+        '#include <dithering_fragment>',
+        `#include <dithering_fragment>
+${floorFinalColors}
+if (fireRedOrangeAccent > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#FF8373')};`
+      );
+  };
+  material.customProgramCacheKey = () => normalizeFloorTiles
+    ? 'fire-red-uniform-floor-palette-v2'
+    : 'fire-red-reference-palette-v3';
+  material.needsUpdate = true;
+  return material;
+}
+
 function ObjectGlow({ geometry, center }) {
   const glowRef = useRef();
 
@@ -266,69 +406,80 @@ function VideoMaterial() {
 
 export function PokemonRoom({ heroRef, onEnterComputer, ...props }) {
   const {nodes, materials} = useLoader(GLTFLoader, 'pokemon_fire_red_players_room/scene.gltf')
+  const roomMaterial = useMemo(
+    () => createFireRedMaterial(materials.fireRed_material),
+    [materials.fireRed_material]
+  );
+  const floorMaterial = useMemo(
+    () => createFireRedMaterial(materials.fireRed_material, true),
+    [materials.fireRed_material]
+  );
+
+  useEffect(() => () => roomMaterial.dispose(), [roomMaterial]);
+  useEffect(() => () => floorMaterial.dispose(), [floorMaterial]);
 
   return (
     <group {...props} dispose={null}>
       <RigidBody type="fixed" colliders="trimesh">
-        <mesh geometry={nodes.base_fireRed_material_0.geometry} material={materials.fireRed_material} />
+        <mesh geometry={nodes.base_fireRed_material_0.geometry} material={roomMaterial} />
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.tiles_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.tiles_fireRed_material_0.geometry} material={floorMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.chair_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.chair_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.table_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.table_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
 
       {/* Computer with Interaction */}
       <RigidBody type="fixed">
         <Computer
           geometry={nodes.Computer_fireRed_material_0.geometry}
-          material={materials.fireRed_material}
+          material={roomMaterial}
           heroRef={heroRef}
           onEnterComputer={onEnterComputer}
         />
       </RigidBody>
 
       <RigidBody type="fixed">
-        <mesh geometry={nodes.TV_stand_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.TV_stand_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
 
       {/* TV Screen with Video support */}
-      <TvScreen geometry={nodes.TV_fireRed_material_0.geometry} material={materials.fireRed_material} scale={1.8} heroRef={heroRef} />
+      <TvScreen geometry={nodes.TV_fireRed_material_0.geometry} material={roomMaterial} scale={1.8} heroRef={heroRef} />
 
       <RigidBody type="fixed">
-        <mesh geometry={nodes.carpet_A_fireRed_material_0.geometry} material={materials.fireRed_material}/>
-        <mesh geometry={nodes.carpet_B_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.carpet_A_fireRed_material_0.geometry} material={roomMaterial}/>
+        <mesh geometry={nodes.carpet_B_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.bed_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.bed_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.dresser_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.dresser_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.bookShelf_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.bookShelf_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.NES_fireRed_material_0.geometry} material={materials.fireRed_material} />
+        <mesh geometry={nodes.NES_fireRed_material_0.geometry} material={roomMaterial} />
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.railing_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.railing_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
-      <mesh geometry={nodes.stairs_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+      <mesh geometry={nodes.stairs_fireRed_material_0.geometry} material={roomMaterial}/>
       <RigidBody type="fixed">
         <mesh
           geometry={nodes.wall_picture_fireRed_material_0.geometry}
-          material={materials.fireRed_material}
+          material={roomMaterial}
         />
       </RigidBody>
       <RigidBody type="fixed">
-        <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+        <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
-      <mesh geometry={nodes.title_fireRed_material_0.geometry} material={materials.fireRed_material}/>
+      <mesh geometry={nodes.title_fireRed_material_0.geometry} material={roomMaterial}/>
     </group>
   )
 }
