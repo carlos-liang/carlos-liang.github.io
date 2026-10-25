@@ -45,6 +45,20 @@ const LandingPage = () => {
         <span className="landing-night__cloud landing-night__cloud--one" />
         <span className="landing-night__cloud landing-night__cloud--two" />
       </div>
+      <p
+        className="absolute z-40 m-0 whitespace-nowrap"
+        style={{
+          top: "3.75rem",
+          left: "4.5rem",
+          color: "#c8ccd4",
+          fontFamily: "monospace",
+          fontSize: "0.8rem",
+          letterSpacing: "0.08em",
+          pointerEvents: "none",
+        }}
+      >
+        Software Engineer · Based in Sydney
+      </p>
       <Canvas
         shadows
         gl={{ alpha: true }}
