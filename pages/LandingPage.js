@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Stars, Environment, ContactShadows } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import CharacterController from "../components/CharacterController";
 import { Physics } from "@react-three/rapier";
 import { PokemonRoom } from "../components/PokemonRoom";
@@ -9,7 +9,7 @@ import Win98Desktop from "../components/win98/Win98Desktop";
 import Win98Boot from "../components/win98/Win98Boot";
 import * as THREE from 'three';
 import CameraRig from "../components/CameraRig";
-
+import PalletNightSky from "../components/PalletNightSky";
 
 const LandingPage = () => {
   const [dpr, setDpr] = useState(1.5)
@@ -40,9 +40,14 @@ const LandingPage = () => {
   }, []);
 
   return (
-    <div className="w-full h-screen relative">
+    <div className="landing-night relative h-screen w-full overflow-hidden">
+      <div className="landing-night__atmosphere" aria-hidden="true">
+        <span className="landing-night__cloud landing-night__cloud--one" />
+        <span className="landing-night__cloud landing-night__cloud--two" />
+      </div>
       <Canvas
         shadows
+        gl={{ alpha: true }}
         camera={{
           fov: 20,
           near: 0.1,
@@ -84,7 +89,7 @@ const LandingPage = () => {
             <PokemonRoom heroRef={heroRef} onEnterComputer={enterComputer} />
           </Physics>
         </Suspense>
-        <Stars/>
+        <PalletNightSky />
       </Canvas>
 
       {/* UI Overlay (hidden while using the computer) */}
