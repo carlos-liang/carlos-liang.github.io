@@ -91,7 +91,10 @@ const LandingPage = () => {
           shadow-camera-left={-20}
         />
         <ambientLight intensity={0.2} />
-        <OrbitControls enabled={computerState === "room"} />
+        <OrbitControls
+          enabled={computerState === "room"}
+          enableZoom={false}
+        />
 
         <Suspense fallback={null}>
           <Physics>
