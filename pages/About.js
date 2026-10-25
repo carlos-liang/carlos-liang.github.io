@@ -1,4 +1,5 @@
 import Image from "next/image";
+import SignalGlitchText from "../components/SignalGlitchText";
 
 const About = () => {
   const dashedBorderStyle = {
@@ -25,7 +26,9 @@ const About = () => {
           />
         </div>
         <div>
-          <h1 className="text-5xl font-bold">CARLOS LIANG</h1>
+          <h1 className="text-5xl font-bold">
+            <SignalGlitchText text="CARLOS LIANG" />
+          </h1>
           <p className="text-lg">Artist/Software Developer</p>
         </div>
       </div>

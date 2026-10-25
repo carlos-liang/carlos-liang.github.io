@@ -17,3 +17,33 @@ body {
     font-family: monospace;
     font-size: large;
 }
+
+.signal-glitch-text {
+    position: relative;
+    display: inline-block;
+    isolation: isolate;
+}
+
+.signal-glitch-text__source {
+    display: block;
+    white-space: nowrap;
+}
+
+.signal-glitch-text__overlay,
+.signal-glitch-text__band {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+}
+
+.signal-glitch-text__overlay {
+    z-index: 1;
+    overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .signal-glitch-text__overlay {
+        display: none;
+    }
+}
