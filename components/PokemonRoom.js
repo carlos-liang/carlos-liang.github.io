@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useMemo, useEffect, useRef } from 'react'
+import React, { useState, Suspense, useMemo, useEffect } from 'react'
 import { useLoader, useFrame } from "@react-three/fiber";
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader'
 import {RigidBody} from "@react-three/rapier";
@@ -145,37 +145,61 @@ if (fireRedOrangeAccent > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#FF8373'
   return material;
 }
 
-function ObjectGlow({ geometry, center }) {
-  const glowRef = useRef();
+function createMirroredRightWallGeometry(sourceGeometry) {
+  const position = sourceGeometry.getAttribute('position');
+  const sourceIndex = sourceGeometry.index;
+  const indexCount = sourceIndex ? sourceIndex.count : position.count;
+  const wallIndices = [];
 
-  useFrame((state) => {
-    if (glowRef.current) {
-      const t = state.clock.getElapsedTime();
-      glowRef.current.material.opacity = 0.5 + Math.sin(t * 4) * 0.2;
+  const vertexIndexAt = (index) => sourceIndex ? sourceIndex.getX(index) : index;
+
+  // The room's left wall is fused into the base mesh. Its complete shell sits
+  // to the left of x=-4.8, including the upper lip and corner thickness.
+  // Select only those triangles so furniture and the remaining room are not
+  // duplicated along with it.
+  for (let index = 0; index < indexCount; index += 3) {
+    const a = vertexIndexAt(index);
+    const b = vertexIndexAt(index + 1);
+    const c = vertexIndexAt(index + 2);
+    const maxX = Math.max(position.getX(a), position.getX(b), position.getX(c));
+
+    if (maxX <= -4.8) {
+      // Mirroring changes handedness, so reverse the triangle winding to keep
+      // the room-facing side visible with the material's normal front culling.
+      wallIndices.push(a, c, b);
     }
-  })
+  }
 
+  const geometry = sourceGeometry.clone();
+  geometry.clearGroups();
+  geometry.setIndex(wallIndices);
+
+  // The floor spans x=-5 to x=6, making x=0.5 the room's centre line.
+  // x' = 1 - x mirrors the selected wall exactly onto the right edge.
+  const mirrorAcrossRoom = new THREE.Matrix4().set(
+    -1, 0, 0, 1,
+     0, 1, 0, 0,
+     0, 0, 1, 0,
+     0, 0, 0, 1
+  );
+  geometry.applyMatrix4(mirrorAcrossRoom);
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function InteractionMarker({ action, inRange, position }) {
   return (
-    <group position={[center.x, center.y, center.z]}>
-      <group scale={1.05}>
-        <mesh
-          ref={glowRef}
-          geometry={geometry}
-          position={[-center.x, -center.y, -center.z]}
-        >
-          <meshBasicMaterial
-            color="white"
-            transparent
-            opacity={0.6}
-            side={THREE.BackSide}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
-    </group>
-  )
+    <Html position={position} center distanceFactor={8}>
+      <div
+        className={`interaction-marker ${inRange ? 'interaction-marker--ready' : ''}`}
+        aria-hidden="true"
+      >
+        <kbd className="interaction-marker__key">{inRange ? 'E' : '!'}</kbd>
+        {inRange && <span className="interaction-marker__action">{action}</span>}
+      </div>
+    </Html>
+  );
 }
 
 function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
@@ -243,20 +267,11 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
           />
         </RigidBody>
 
-        {/* White Outline/Glow always visible */}
-        <ObjectGlow geometry={geometry} center={center} />
-
-        {/* Tooltip when in range or hovered */}
-        {(inRange || hovered) && (
-          <Html position={[center.x, center.y + size.y * 1.2, center.z]} center distanceFactor={8}>
-            <div className="bg-black/80 text-white px-3 py-1.5 rounded-full text-sm font-bold border border-white/50 backdrop-blur-sm shadow-lg pointer-events-none select-none flex items-center gap-2 whitespace-nowrap">
-              {on ? "Turn Off" : "Watch TV"}
-              <span className="text-xs text-gray-300 ml-1">
-                (E)
-              </span>
-            </div>
-          </Html>
-        )}
+        <InteractionMarker
+          action={on ? "TURN OFF" : "WATCH"}
+          inRange={inRange}
+          position={[center.x, center.y + size.y * 1.28, center.z]}
+        />
 
         {/* The Video Screen (Overlay) */}
         {on && (
@@ -293,7 +308,6 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
 function Computer({ geometry, material, heroRef, onEnterComputer }) {
   const [hovered, setHovered] = useState(false);
   const [inRange, setInRange] = useState(false);
-  const [hasBeenUsed, setHasBeenUsed] = useState(false);
 
   const { center, size, screen } = useMemo(() => {
     if (!geometry)
@@ -323,7 +337,6 @@ function Computer({ geometry, material, heroRef, onEnterComputer }) {
         // Hand the camera rig the measured screen plane so it can frame the
         // monitor glass head-on and pin the Win98 desktop panel to it.
         if (onEnterComputer && screen) {
-          setHasBeenUsed(true);
           onEnterComputer(screen);
         }
       }
@@ -361,19 +374,11 @@ function Computer({ geometry, material, heroRef, onEnterComputer }) {
         onPointerOver={(e) => { e.stopPropagation(); setHovered(true) }}
         onPointerOut={(e) => { e.stopPropagation(); setHovered(false) }}
       />
-      {/* Stop highlighting the computer after the player has used it. */}
-      {!hasBeenUsed && <ObjectGlow geometry={geometry} center={center} />}
-
-      {(inRange || hovered) && (
-        <Html position={[center.x, center.y + size.y, center.z]} center distanceFactor={8}>
-          <div className="bg-black/80 text-white px-3 py-1.5 rounded-full text-sm font-bold border border-white/50 backdrop-blur-sm shadow-lg pointer-events-none select-none flex items-center gap-2 whitespace-nowrap">
-            Use Computer
-            <span className="text-xs text-gray-300 ml-1">
-              (E)
-            </span>
-          </div>
-        </Html>
-      )}
+      <InteractionMarker
+        action="USE"
+        inRange={inRange}
+        position={[center.x, center.y + size.y * 1.1, center.z]}
+      />
     </group>
   )
 }
@@ -418,14 +423,22 @@ export function PokemonRoom({ heroRef, onEnterComputer, ...props }) {
     () => createFireRedMaterial(materials.fireRed_material, true),
     [materials.fireRed_material]
   );
+  const rightWallGeometry = useMemo(
+    () => createMirroredRightWallGeometry(nodes.base_fireRed_material_0.geometry),
+    [nodes.base_fireRed_material_0.geometry]
+  );
 
   useEffect(() => () => roomMaterial.dispose(), [roomMaterial]);
   useEffect(() => () => floorMaterial.dispose(), [floorMaterial]);
+  useEffect(() => () => rightWallGeometry.dispose(), [rightWallGeometry]);
 
   return (
     <group {...props} dispose={null}>
       <RigidBody type="fixed" colliders="trimesh">
         <mesh geometry={nodes.base_fireRed_material_0.geometry} material={roomMaterial} />
+      </RigidBody>
+      <RigidBody type="fixed" colliders="trimesh">
+        <mesh geometry={rightWallGeometry} material={roomMaterial} />
       </RigidBody>
       <RigidBody type="fixed">
         <mesh geometry={nodes.tiles_fireRed_material_0.geometry} material={floorMaterial}/>
