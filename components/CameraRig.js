@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 // Room view — matches the <Canvas camera position> and OrbitControls target.
-const ROOM_POS = new THREE.Vector3(0, 20, 25);
+const ROOM_POS = new THREE.Vector3(0, 21, 26.25);
 const ROOM_LOOK = new THREE.Vector3(0, 0, 0);
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
@@ -11,16 +11,10 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 // (head-on). Smaller = closer. ~1.35 frames the monitor so the glass fills the
 // view with the bezel showing as a thin frame around it.
 const CAM_DIST = 1.7;
-// Overscan the panel a little BEYOND the measured glass rect so the desktop
-// fills the monitor's recessed screen while leaving the cream plastic bezel
-// (the computer's frame) clearly visible all the way around. 1.0 = the measured
-// glass (leaves a fat grey screen border); ~1.25+ spills onto the bezel/into the
-// room. These values were tuned against screenshots so the desktop fills the
-// screen but the monitor border still shows. Y is a touch larger than X because
-// the measured glass under-counts height more.
+// Original panel sizing, tuned to fill the monitor screen at the zoomed view.
 const PANEL_OVERSCAN_X = 1.09;
 const PANEL_OVERSCAN_Y = 1.13;
-// Pull the LEFT edge of the panel inward (rightward) by this fraction of the
+// Trim the left edge slightly inward by this fraction of the
 // panel width, without moving the right edge — the left was spilling out a touch.
 const PANEL_TRIM_LEFT = 0.02;
 

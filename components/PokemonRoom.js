@@ -1,9 +1,15 @@
-import React, { useState, Suspense, useMemo, useEffect } from 'react'
+import React, { useState, Suspense, useMemo, useEffect, useRef } from 'react'
 import { useLoader, useFrame } from "@react-three/fiber";
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader'
 import {RigidBody} from "@react-three/rapier";
 import { useVideoTexture, Html } from '@react-three/drei';
 import * as THREE from 'three';
+
+const FIRE_RED_GREEN_COLORS = {
+  main: '#6AC56A',
+  light: '#94D6A0',
+};
+const TV_INTERACTION_DISTANCE = 2.25;
 
 const FIRE_RED_PALETTE = [
   // Floor: move the brown parquet range toward the game's olive-gold floor.
@@ -20,10 +26,11 @@ const FIRE_RED_PALETTE = [
   ['#E0D078', '#DDD36D'],
   ['#F0E890', '#EEE783'],
 
-  // Rug and green furniture: cleaner, slightly cooler FireRed greens.
-  ['#54A768', '#4EAA62'],
-  ['#68C068', '#60C873'],
-  ['#8EE5A1', '#91E7A7'],
+  // Exact greens from the FireRed Pallet Town house reference. The rug and
+  // furniture share one green; the bright monitor fill stays separate.
+  ['#54A768', FIRE_RED_GREEN_COLORS.main],
+  ['#68C068', FIRE_RED_GREEN_COLORS.main],
+  ['#8EE5A1', FIRE_RED_GREEN_COLORS.light],
 
   // Walls and warm neutrals: pale green-cream rather than flat beige.
   ['#979784', '#9EA88B'],
@@ -50,6 +57,21 @@ const FIRE_RED_PALETTE = [
   // FireRed salmon used by the stair rug and wall clipboard.
   ['#E08860', '#FF8373'],
 ];
+
+// Sampled from the lossless FireRed/LeafGreen Pallet Town house map. These are
+// written after lighting and tone mapping so the floor reaches the screen with
+// the same four pixel colours as the 2D reference.
+const FIRE_RED_FLOOR_COLORS = {
+  base: '#C5B44A',
+  shade: '#A49431',
+  line: '#837310',
+  grout: '#7B7B7B',
+};
+
+// Including the palette values in both memo and shader cache keys ensures a
+// colour edit is visible immediately instead of reusing an older GPU program.
+const FIRE_RED_PALETTE_KEY = FIRE_RED_PALETTE.flat().join(':');
+const FIRE_RED_FLOOR_KEY = Object.values(FIRE_RED_FLOOR_COLORS).join(':');
 
 function shaderColor(hex) {
   const channelToLinear = (value) => {
@@ -98,12 +120,11 @@ fireRedFloorLine = distance(diffuseColor.rgb, ${shaderColor('#867616')}) < 0.002
 fireRedFloorGrout = distance(diffuseColor.rgb, ${shaderColor('#787878')}) < 0.002 ? 1.0 : 0.0;`
     : '';
   const floorFinalColors = normalizeFloorTiles
-    ? `if (fireRedFloorBase > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#C0B048')};
-if (fireRedFloorShade > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#A09030')};
-if (fireRedFloorLine > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#867616')};
-if (fireRedFloorGrout > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#787878')};`
+    ? `if (fireRedFloorBase > 0.5) gl_FragColor.rgb = ${shaderDisplayColor(FIRE_RED_FLOOR_COLORS.base)};
+if (fireRedFloorShade > 0.5) gl_FragColor.rgb = ${shaderDisplayColor(FIRE_RED_FLOOR_COLORS.shade)};
+if (fireRedFloorLine > 0.5) gl_FragColor.rgb = ${shaderDisplayColor(FIRE_RED_FLOOR_COLORS.line)};
+if (fireRedFloorGrout > 0.5) gl_FragColor.rgb = ${shaderDisplayColor(FIRE_RED_FLOOR_COLORS.grout)};`
     : '';
-
   material.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -139,8 +160,8 @@ if (fireRedOrangeAccent > 0.5) gl_FragColor.rgb = ${shaderDisplayColor('#FF8373'
       );
   };
   material.customProgramCacheKey = () => normalizeFloorTiles
-    ? 'fire-red-uniform-floor-palette-v2'
-    : 'fire-red-reference-palette-v3';
+    ? `fire-red-floor:${FIRE_RED_PALETTE_KEY}:${FIRE_RED_FLOOR_KEY}`
+    : `fire-red-room:${FIRE_RED_PALETTE_KEY}`;
   material.needsUpdate = true;
   return material;
 }
@@ -240,7 +261,7 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
   useFrame(() => {
     if (heroRef && heroRef.current) {
       const dist = heroRef.current.distanceTo(center);
-      if (dist < 3.5) { // Proximity threshold
+      if (dist < TV_INTERACTION_DISTANCE) {
         if (!inRange) setInRange(true);
       } else {
         if (inRange) setInRange(false);
@@ -302,6 +323,78 @@ function TvScreen({ material, geometry, scale = 1.5, heroRef, ...props }) {
         )}
       </group>
     </group>
+  );
+}
+
+function ReactiveBed({ geometry, material, heroRef }) {
+  const bedRef = useRef(null);
+  const previousHeroY = useRef(null);
+  const impactAge = useRef(Number.POSITIVE_INFINITY);
+
+  const bounds = useMemo(() => {
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    box.getCenter(center);
+    box.getSize(size);
+
+    return {
+      center,
+      size,
+      top: box.max.y,
+      bottomCenter: new THREE.Vector3(center.x, box.min.y, center.z),
+    };
+  }, [geometry]);
+
+  useFrame((_, delta) => {
+    const hero = heroRef?.current;
+    if (!hero || !bedRef.current) return;
+
+    const lastY = previousHeroY.current;
+    const verticalSpeed = lastY === null ? 0 : (hero.y - lastY) / Math.max(delta, 0.001);
+    const insideMattress =
+      Math.abs(hero.x - bounds.center.x) <= bounds.size.x * 0.5 + 0.12 &&
+      Math.abs(hero.z - bounds.center.z) <= bounds.size.z * 0.5 + 0.12;
+    const crossedBedTop =
+      lastY !== null &&
+      lastY > bounds.top + 0.16 &&
+      hero.y <= bounds.top + 0.16;
+
+    if (insideMattress && crossedBedTop && verticalSpeed < -1.2) {
+      impactAge.current = 0;
+    }
+    previousHeroY.current = hero.y;
+
+    if (impactAge.current <= 0.72) {
+      impactAge.current += delta;
+      const age = impactAge.current;
+      const spring = Math.cos(age * 22) * Math.exp(-age * 6.5);
+
+      // Squash from the bottom so the bed frame remains planted on the floor.
+      bedRef.current.scale.set(
+        1 + spring * 0.045,
+        1 - spring * 0.18,
+        1 + spring * 0.045
+      );
+    } else {
+      bedRef.current.scale.set(1, 1, 1);
+    }
+  });
+
+  return (
+    <RigidBody type="fixed">
+      <group
+        ref={bedRef}
+        position={bounds.bottomCenter.toArray()}
+      >
+        <mesh
+          geometry={geometry}
+          material={material}
+          position={bounds.bottomCenter.clone().multiplyScalar(-1).toArray()}
+        />
+      </group>
+    </RigidBody>
   );
 }
 
@@ -383,6 +476,85 @@ function Computer({ geometry, material, heroRef, onEnterComputer }) {
   )
 }
 
+function Clipboard({
+  geometry,
+  material,
+  heroRef,
+  onOpenClipboard,
+  disabled = false,
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [inRange, setInRange] = useState(false);
+
+  const { center, size } = useMemo(() => {
+    geometry.computeBoundingBox();
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    geometry.boundingBox.getCenter(center);
+    geometry.boundingBox.getSize(size);
+    return { center, size };
+  }, [geometry]);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered && !disabled ? 'pointer' : 'auto';
+    return () => { document.body.style.cursor = 'auto' };
+  }, [hovered, disabled]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (
+        !disabled &&
+        !event.repeat &&
+        event.key.toLowerCase() === 'e' &&
+        inRange
+      ) {
+        onOpenClipboard?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [disabled, inRange, onOpenClipboard]);
+
+  useFrame(() => {
+    if (!heroRef?.current) return;
+    const isNear = heroRef.current.distanceTo(center) < 2.25;
+    if (isNear && !inRange) setInRange(true);
+    if (!isNear && inRange) setInRange(false);
+  });
+
+  const openFromPointer = (event) => {
+    event.stopPropagation();
+    if (!disabled && inRange) onOpenClipboard?.();
+  };
+
+  return (
+    <group
+      onClick={openFromPointer}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerOut={(event) => {
+        event.stopPropagation();
+        setHovered(false);
+      }}
+    >
+      <RigidBody type="fixed">
+        <mesh geometry={geometry} material={material} />
+      </RigidBody>
+
+      {!disabled && (
+        <InteractionMarker
+          action="OPEN"
+          inRange={inRange}
+          position={[center.x, center.y + size.y * 0.82, center.z + 0.05]}
+        />
+      )}
+    </group>
+  );
+}
+
 function VideoMaterial() {
   // Using a sample video from local public folder
   const texture = useVideoTexture("/new-jeans-right-now.mp4", {
@@ -413,15 +585,21 @@ function VideoMaterial() {
   return <meshBasicMaterial map={texture} toneMapped={false} />;
 }
 
-export function PokemonRoom({ heroRef, onEnterComputer, ...props }) {
+export function PokemonRoom({
+  heroRef,
+  onEnterComputer,
+  onOpenClipboard,
+  clipboardOpen = false,
+  ...props
+}) {
   const {nodes, materials} = useLoader(GLTFLoader, 'pokemon_fire_red_players_room/scene.gltf')
   const roomMaterial = useMemo(
     () => createFireRedMaterial(materials.fireRed_material),
-    [materials.fireRed_material]
+    [materials.fireRed_material, FIRE_RED_PALETTE_KEY]
   );
   const floorMaterial = useMemo(
     () => createFireRedMaterial(materials.fireRed_material, true),
-    [materials.fireRed_material]
+    [materials.fireRed_material, FIRE_RED_PALETTE_KEY, FIRE_RED_FLOOR_KEY]
   );
   const rightWallGeometry = useMemo(
     () => createMirroredRightWallGeometry(nodes.base_fireRed_material_0.geometry),
@@ -471,9 +649,11 @@ export function PokemonRoom({ heroRef, onEnterComputer, ...props }) {
         <mesh geometry={nodes.carpet_A_fireRed_material_0.geometry} material={roomMaterial}/>
         <mesh geometry={nodes.carpet_B_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
-      <RigidBody type="fixed">
-        <mesh geometry={nodes.bed_fireRed_material_0.geometry} material={roomMaterial}/>
-      </RigidBody>
+      <ReactiveBed
+        geometry={nodes.bed_fireRed_material_0.geometry}
+        material={roomMaterial}
+        heroRef={heroRef}
+      />
       <RigidBody type="fixed">
         <mesh geometry={nodes.dresser_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
@@ -487,12 +667,13 @@ export function PokemonRoom({ heroRef, onEnterComputer, ...props }) {
         <mesh geometry={nodes.railing_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>
       <mesh geometry={nodes.stairs_fireRed_material_0.geometry} material={roomMaterial}/>
-      <RigidBody type="fixed">
-        <mesh
-          geometry={nodes.wall_picture_fireRed_material_0.geometry}
-          material={roomMaterial}
-        />
-      </RigidBody>
+      <Clipboard
+        geometry={nodes.wall_picture_fireRed_material_0.geometry}
+        material={roomMaterial}
+        heroRef={heroRef}
+        onOpenClipboard={onOpenClipboard}
+        disabled={clipboardOpen}
+      />
       <RigidBody type="fixed">
         <mesh geometry={nodes.ambient_occlusion_fireRed_material_0.geometry} material={roomMaterial}/>
       </RigidBody>

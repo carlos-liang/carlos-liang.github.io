@@ -1,7 +1,7 @@
 import React, { useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 
-export function Bmo(props) {
+export function Bmo({ rightArmRef, ...props }) {
   const group = useRef();
   const { nodes, materials } = useGLTF('bmo/scene.gltf');
 
@@ -23,9 +23,11 @@ export function Bmo(props) {
                 <mesh name="mesh_2" geometry={nodes.mesh_2.geometry} material={materials['Material.001']} morphTargetDictionary={nodes.mesh_2.morphTargetDictionary} morphTargetInfluences={nodes.mesh_2.morphTargetInfluences} />
                 <mesh name="mesh_2_1" geometry={nodes.mesh_2_1.geometry} material={materials.OUTLINE} morphTargetDictionary={nodes.mesh_2_1.morphTargetDictionary} morphTargetInfluences={nodes.mesh_2_1.morphTargetInfluences} />
               </group>
-              <group name="RIGHT_ARM_3" position={[-0.062, 0.114, 0]} rotation={[Math.PI / 2, 1.571, 0]}>
-                <mesh name="mesh_3" geometry={nodes.mesh_3.geometry} material={materials['Material.001']} morphTargetDictionary={nodes.mesh_3.morphTargetDictionary} morphTargetInfluences={nodes.mesh_3.morphTargetInfluences} />
-                <mesh name="mesh_3_1" geometry={nodes.mesh_3_1.geometry} material={materials.OUTLINE} morphTargetDictionary={nodes.mesh_3_1.morphTargetDictionary} morphTargetInfluences={nodes.mesh_3_1.morphTargetInfluences} />
+              <group ref={rightArmRef} position={[-0.062, 0.114, 0]}>
+                <group name="RIGHT_ARM_3" rotation={[Math.PI / 2, 1.571, 0]}>
+                  <mesh name="mesh_3" geometry={nodes.mesh_3.geometry} material={materials['Material.001']} morphTargetDictionary={nodes.mesh_3.morphTargetDictionary} morphTargetInfluences={nodes.mesh_3.morphTargetInfluences} />
+                  <mesh name="mesh_3_1" geometry={nodes.mesh_3_1.geometry} material={materials.OUTLINE} morphTargetDictionary={nodes.mesh_3_1.morphTargetDictionary} morphTargetInfluences={nodes.mesh_3_1.morphTargetInfluences} />
+                </group>
               </group>
               <group name="RIGHT_LEG_4" position={[-0.032, 0.07, -0.001]} rotation={[Math.PI / 2, 1.571, 0]}>
                 <mesh name="mesh_4" geometry={nodes.mesh_4.geometry} material={materials['Material.001']} morphTargetDictionary={nodes.mesh_4.morphTargetDictionary} morphTargetInfluences={nodes.mesh_4.morphTargetInfluences} />

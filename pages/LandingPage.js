@@ -10,6 +10,8 @@ import Win98Boot from "../components/win98/Win98Boot";
 import * as THREE from 'three';
 import CameraRig from "../components/CameraRig";
 import PalletNightSky from "../components/PalletNightSky";
+import PokemonClipboard from "../components/PokemonClipboard";
+import ShootingStar from "../components/ShootingStar";
 
 const LandingPage = () => {
   const [dpr, setDpr] = useState(1.5)
@@ -20,6 +22,7 @@ const LandingPage = () => {
   const panelRef = useRef(null);
   const [computerState, setComputerState] = useState("room");
   const [zoomTarget, setZoomTarget] = useState(null);
+  const [clipboardOpen, setClipboardOpen] = useState(false);
 
   const enterComputer = (target) => {
     if (target) setZoomTarget(target);
@@ -32,6 +35,7 @@ const LandingPage = () => {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") {
+        setClipboardOpen(false);
         setComputerState((s) => (s === "desktop" ? "zooming-out" : s));
       }
     };
@@ -40,10 +44,15 @@ const LandingPage = () => {
   }, []);
 
   return (
-    <div className="landing-night relative h-screen w-full overflow-hidden">
+    <div
+      className={`landing-night relative h-screen w-full overflow-hidden ${
+        clipboardOpen ? "landing-night--clipboard-open" : ""
+      }`}
+    >
       <div className="landing-night__atmosphere" aria-hidden="true">
         <span className="landing-night__cloud landing-night__cloud--one" />
         <span className="landing-night__cloud landing-night__cloud--two" />
+        <ShootingStar />
       </div>
       <p
         className="absolute z-40 m-0 whitespace-nowrap"
@@ -57,7 +66,7 @@ const LandingPage = () => {
           pointerEvents: "none",
         }}
       >
-        Software Engineer · Based in Sydney
+        Software Engineer &middot; Based in Sydney
       </p>
       <Canvas
         shadows
@@ -66,7 +75,7 @@ const LandingPage = () => {
           fov: 20,
           near: 0.1,
           far: 1000,
-          position: [0, 20, 25],
+          position: [0, 21, 26.25],
         }}
         linear="true"
         legacy="false"
@@ -92,7 +101,7 @@ const LandingPage = () => {
         />
         <ambientLight intensity={0.2} />
         <OrbitControls
-          enabled={computerState === "room"}
+          enabled={computerState === "room" && !clipboardOpen}
           enableZoom={false}
         />
 
@@ -100,17 +109,23 @@ const LandingPage = () => {
           <Physics>
             <CharacterController
               heroRef={heroRef}
-              inputLocked={computerState !== "room"}
+              inputLocked={computerState !== "room" || clipboardOpen}
+              visible={computerState === "room"}
             />
             <pointLight position={[5, 5, 5]}/>
-            <PokemonRoom heroRef={heroRef} onEnterComputer={enterComputer} />
+            <PokemonRoom
+              heroRef={heroRef}
+              onEnterComputer={enterComputer}
+              onOpenClipboard={() => setClipboardOpen(true)}
+              clipboardOpen={clipboardOpen}
+            />
           </Physics>
         </Suspense>
         <PalletNightSky />
       </Canvas>
 
       {/* UI Overlay (hidden while using the computer) */}
-      {showDialog && computerState === "room" && (
+      {showDialog && computerState === "room" && !clipboardOpen && (
         <DialogBox
             messages={[
                 "Welcome to my portfolio!",
@@ -118,6 +133,10 @@ const LandingPage = () => {
             ]} 
             onDone={() => setShowDialog(false)} 
         />
+      )}
+
+      {clipboardOpen && (
+        <PokemonClipboard onClose={() => setClipboardOpen(false)} />
       )}
 
       {(computerState === "booting" ||
@@ -132,10 +151,11 @@ const LandingPage = () => {
           }}
         >
           {/* Screen panel — pinned over the monitor's glass by CameraRig (which
-              writes left/top/width/height every frame), overscanned a little so
-              the desktop covers the grey casing instead of stopping at the glass. */}
+              writes left/top/width/height every frame) using the original fitted
+              size of the interactive desktop. */}
           <div
             ref={panelRef}
+            className="computer-screen-panel"
             style={{
               position: "absolute",
               left: 0,

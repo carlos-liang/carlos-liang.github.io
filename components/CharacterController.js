@@ -5,11 +5,16 @@ import { CapsuleCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from "three";
 import { Bmo } from "./Bmo";
 
-const CharacterController = ({ heroRef, inputLocked }) => {
+const CharacterController = ({ heroRef, inputLocked, visible = true }) => {
   const characterBody = useRef();
   const character = useRef()
+  const rightArm = useRef();
+  const waveStartedAt = useRef(null);
+  const spawnedAt = useRef(performance.now());
+  const hasWavedAfterLanding = useRef(false);
   const orientation = useRef(Math.PI);
   const inAir = useRef(false);
+  const hasStartedFalling = useRef(false);
 
   // Procedural walk state (grounded & natural)
   const stepPhase = useRef(0);   // accumulates with distance travelled, drives the bob
@@ -18,6 +23,7 @@ const CharacterController = ({ heroRef, inputLocked }) => {
 
   // Procedural jump state (squash & stretch)
   const prevVelY = useRef(0);    // last frame's vertical speed, for landing detection
+  const takeoffSquash = useRef(0); // quick compression that gives takeoff more punch
   const landSquash = useRef(0);  // squash impulse, springs back to 0
   const airStretch = useRef(0);  // smoothed airborne stretch
 
@@ -50,12 +56,13 @@ const CharacterController = ({ heroRef, inputLocked }) => {
   const LEAN_SIGN = -1;           // -1 leans into travel; flip to +1 if it leans backward
 
   // Jump-feel tuning (grounded & natural)
-  const JUMP_VELOCITY = 10.0;     // takeoff speed
-  const FALL_BOOST = 22;          // extra downward accel while falling (kills the float)
-  const MAX_FALL_SPEED = -30;     // terminal fall speed clamp
+  const JUMP_VELOCITY = 8.8;      // lower arc makes BMO feel weightier
+  const FALL_BOOST = 14;          // firm descent without snapping downward
+  const MAX_FALL_SPEED = -24;     // keep hard falls controlled
+  const TAKEOFF_SQUASH = 0.18;    // anticipation on the first jump frame
   const STRETCH_K = 0.012;        // vertical stretch per unit vertical speed
-  const MAX_STRETCH = 0.16;       // cap on airborne stretch
-  const LAND_SQUASH = 0.22;       // max squash on a hard landing
+  const MAX_STRETCH = 0.14;       // cap on airborne stretch
+  const LAND_SQUASH = 0.27;       // stronger impact on landing
 
   const {nodes, materials, animations} = useGLTF('/bmo/scene.gltf')
   const {actions} = useAnimations(animations, character)
@@ -93,6 +100,8 @@ const CharacterController = ({ heroRef, inputLocked }) => {
           const linvel = characterBody.current.linvel();
           characterBody.current.setLinvel({ x: linvel.x, y: JUMP_VELOCITY, z: linvel.z });
           inAir.current = true;
+          hasStartedFalling.current = false;
+          takeoffSquash.current = TAKEOFF_SQUASH;
         }
         break;
       case 16: //shift
@@ -124,13 +133,37 @@ const CharacterController = ({ heroRef, inputLocked }) => {
 
   useFrame((state, delta) => {
     const isMoving = movement.forward || movement.backward || movement.left || movement.right;
+    const wasInAir = inAir.current;
 
-    // Check ground status roughly by velocity
+    // Keep the jump locked through the apex. A near-zero vertical speed also
+    // occurs at the top of a jump, so it should only mean "landed" after BMO
+    // has actually started falling.
     const linvel = characterBody.current.linvel();
-    if (Math.abs(linvel.y) < 0.1) {
-      inAir.current = false;
-    } else {
+    if (inAir.current) {
+      if (linvel.y < -0.2) hasStartedFalling.current = true;
+      if (hasStartedFalling.current && Math.abs(linvel.y) < 0.1) {
+        inAir.current = false;
+        hasStartedFalling.current = false;
+      }
+    } else if (linvel.y < -0.2) {
+      // BMO can still become airborne by walking off an edge.
       inAir.current = true;
+      hasStartedFalling.current = true;
+    }
+
+    // Greet once after the initial drop onto the floor. The short grounded
+    // fallback also covers a fast first physics step that settles between frames.
+    const justLanded = wasInAir && !inAir.current;
+    const settledAfterSpawn =
+      performance.now() - spawnedAt.current > 750 &&
+      !inAir.current &&
+      Math.abs(linvel.y) < 0.1;
+    if (
+      !hasWavedAfterLanding.current &&
+      (justLanded || settledAfterSpawn)
+    ) {
+      hasWavedAfterLanding.current = true;
+      waveStartedAt.current = performance.now();
     }
 
     // Determine if we should be simulating movement or stopping
@@ -214,10 +247,11 @@ const CharacterController = ({ heroRef, inputLocked }) => {
      * small per-step bob plus a slight lean into the direction of travel.
      */
     const horizontalSpeed = Math.hypot(currentVelocity.current.x, currentVelocity.current.z);
+
     const walkAction = actions.Animation;
     if (walkAction) {
       // Blend the walk clip in/out based on actual ground speed
-      const targetWeight = horizontalSpeed > 0.2 ? 1 : 0;
+      const targetWeight = !inAir.current && horizontalSpeed > 0.2 ? 1 : 0;
       walkWeight.current = THREE.MathUtils.lerp(walkWeight.current, targetWeight, 0.15);
       walkAction.setEffectiveWeight(walkWeight.current);
       // Sync playback speed to ground speed so the gait matches distance covered
@@ -241,6 +275,11 @@ const CharacterController = ({ heroRef, inputLocked }) => {
       const vy = linvel.y;
       const targetStretch = Math.abs(vy) > 1 ? Math.min(Math.abs(vy) * STRETCH_K, MAX_STRETCH) : 0;
       airStretch.current = THREE.MathUtils.lerp(airStretch.current, targetStretch, 0.2);
+      takeoffSquash.current = THREE.MathUtils.lerp(
+        takeoffSquash.current,
+        0,
+        1 - Math.exp(-14 * Math.min(delta, 1 / 30))
+      );
 
       // Landing impact: was falling fast last frame, now suddenly not -> squash, scaled by impact
       if (prevVelY.current < -3 && vy > -1) {
@@ -250,9 +289,31 @@ const CharacterController = ({ heroRef, inputLocked }) => {
       prevVelY.current = vy;
 
       // Tall & thin in the air, short & wide on impact (volume roughly preserved)
-      const sy = 1 + airStretch.current - landSquash.current;
-      const sxz = 1 - (airStretch.current - landSquash.current) * 0.5;
+      const totalSquash = takeoffSquash.current + landSquash.current;
+      const sy = 1 + airStretch.current - totalSquash;
+      const sxz = 1 - (airStretch.current - totalSquash) * 0.5;
       character.current.scale.set(sxz, sy, sxz);
+    }
+
+    // Friendly wave: lift the arm diagonally, swing it gently up and down a
+    // few times, then return to rest. The forward offset keeps it visible.
+    if (rightArm.current && waveStartedAt.current !== null) {
+      const t = (performance.now() - waveStartedAt.current) / 1000;
+      const raise = THREE.MathUtils.smoothstep(t, 0, 0.3);
+      const lower = 1 - THREE.MathUtils.smoothstep(t, 1.8, 2.2);
+      const waveAmount = raise * lower;
+      const swing = Math.sin((t - 0.3) * 11) * 0.18;
+
+      rightArm.current.rotation.z = (-1.55 + swing) * waveAmount;
+      rightArm.current.position.y = 0.114;
+      rightArm.current.position.z = 0.015 * waveAmount;
+
+      if (t >= 2.2) {
+        rightArm.current.rotation.z = 0;
+        rightArm.current.position.y = 0.114;
+        rightArm.current.position.z = 0;
+        waveStartedAt.current = null;
+      }
     }
 
     if (characterBody.current.translation().y < -20) {
@@ -308,13 +369,13 @@ const CharacterController = ({ heroRef, inputLocked }) => {
       ref={characterBody}
       colliders={false}
       position={[-2, 1, 2.2]}
-      restitution={0.2}
+      restitution={0}
       friction={1}
-      gravityScale={2.5}
+      gravityScale={2.8}
       ccd={true} // Continuous Collision Detection prevents falling through floor at high speeds/lag
     >
-      <group ref={character}>
-        <Bmo/>
+      <group ref={character} visible={visible}>
+        <Bmo rightArmRef={rightArm}/>
       </group>
       <CapsuleCollider args={[0.8, 0.4]} position={[0, 1.2, 0]}/>
     </RigidBody>
