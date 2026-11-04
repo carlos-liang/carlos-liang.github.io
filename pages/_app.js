@@ -8,6 +8,7 @@ export default function App({ Component, pageProps }) {
         <>
             <Head>
                 <title>Carlos Liang</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
             </Head>
             <Navbar/>
             <Component {...pageProps} />

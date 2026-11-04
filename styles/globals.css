@@ -19,9 +19,316 @@ body {
 }
 
 .landing-night {
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+    overscroll-behavior: none;
+    touch-action: none;
     background:
         radial-gradient(circle at 50% 48%, rgba(28, 39, 66, 0.9) 0%, rgba(10, 18, 38, 0.72) 34%, rgba(2, 4, 12, 0) 64%),
         linear-gradient(180deg, #02040c 0%, #071020 56%, #0b1428 100%);
+}
+
+.site-navbar {
+    padding: max(0.75rem, env(safe-area-inset-top)) 4rem 0.75rem;
+    pointer-events: none;
+}
+
+.site-navbar__home {
+    display: inline-flex;
+    padding: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+.site-navbar__brand {
+    font-size: 1.6rem;
+}
+
+.landing-night__location {
+    top: 3.75rem;
+    left: 4.5rem;
+    color: #c8ccd4;
+    font-family: monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+}
+
+.mobile-controls {
+    position: absolute;
+    z-index: 45;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    left: max(1rem, env(safe-area-inset-left));
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.mobile-controls__joystick {
+    position: relative;
+    width: 9.5rem;
+    height: 9.5rem;
+    border: 3px solid #243052;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, rgba(85, 116, 184, 0.26) 0 43%, transparent 44%),
+        repeating-conic-gradient(from 22.5deg, rgba(36, 48, 82, 0.1) 0 12deg, transparent 12deg 45deg),
+        rgba(248, 242, 207, 0.86);
+    box-shadow:
+        inset 0 0 0 5px rgba(85, 116, 184, 0.42),
+        inset 0 0 22px rgba(36, 48, 82, 0.24);
+    filter: drop-shadow(0 5px 0 rgba(12, 18, 34, 0.55));
+    cursor: grab;
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-controls__joystick:active {
+    cursor: grabbing;
+}
+
+.mobile-controls__joystick-ticks,
+.mobile-controls__joystick-ticks::before,
+.mobile-controls__joystick-ticks::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.mobile-controls__joystick-ticks::before,
+.mobile-controls__joystick-ticks::after {
+    content: "";
+    margin: auto;
+    background: #243052;
+    opacity: 0.38;
+}
+
+.mobile-controls__joystick-ticks::before {
+    width: 0.18rem;
+    height: 76%;
+}
+
+.mobile-controls__joystick-ticks::after {
+    width: 76%;
+    height: 0.18rem;
+}
+
+.mobile-controls__joystick-knob {
+    position: absolute;
+    z-index: 2;
+    top: calc(50% - 2.1rem);
+    left: calc(50% - 2.1rem);
+    width: 4.2rem;
+    height: 4.2rem;
+    border: 3px solid #243052;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.52) 0 8%, transparent 9%),
+        radial-gradient(circle, #7893ca 0 46%, #5574b8 47% 72%, #405b96 73% 100%);
+    box-shadow:
+        inset -5px -6px 0 rgba(35, 48, 82, 0.32),
+        0 5px 0 rgba(36, 48, 82, 0.55),
+        0 7px 12px rgba(7, 11, 24, 0.3);
+    pointer-events: none;
+    will-change: transform;
+}
+
+.mobile-control-button {
+    display: grid;
+    min-width: 3.15rem;
+    min-height: 3.15rem;
+    padding: 0;
+    place-items: center;
+    border: 2px solid #243052;
+    border-radius: 0.25rem;
+    background: rgba(248, 242, 207, 0.9);
+    color: #243052;
+    font-family: 'PokemonGb', monospace;
+    font-size: 0.7rem;
+    line-height: 1;
+    box-shadow: inset -3px -3px 0 rgba(85, 116, 184, 0.52);
+    cursor: pointer;
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-control-button:active {
+    transform: translateY(2px);
+    box-shadow: inset 3px 3px 0 rgba(85, 116, 184, 0.52);
+}
+
+.mobile-control-button:focus-visible {
+    outline: 3px solid #ffe779;
+    outline-offset: 3px;
+}
+
+.mobile-controls__actions {
+    display: flex;
+    gap: 0.9rem;
+    align-items: flex-end;
+    pointer-events: auto;
+}
+
+.mobile-controls__actions .mobile-control-button {
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 50%;
+}
+
+.mobile-controls__actions strong,
+.mobile-controls__actions small {
+    grid-area: 1 / 1;
+}
+
+.mobile-controls__actions strong {
+    margin-top: -0.65rem;
+    font-size: 1.05rem;
+}
+
+.mobile-controls__actions small {
+    margin-top: 1.55rem;
+    font-size: 0.36rem;
+}
+
+.mobile-control-button--primary {
+    background: rgba(217, 87, 77, 0.94);
+    color: #fffbea;
+    box-shadow: inset -4px -4px 0 rgba(125, 40, 44, 0.65);
+}
+
+.mobile-control-button--secondary {
+    margin-bottom: 2.25rem;
+    background: rgba(85, 116, 184, 0.94);
+    color: #fffbea;
+    box-shadow: inset -4px -4px 0 rgba(35, 48, 82, 0.65);
+}
+
+.computer-mobile-exit {
+    position: absolute;
+    z-index: 60;
+    top: max(0.8rem, env(safe-area-inset-top));
+    right: max(1rem, env(safe-area-inset-right));
+    display: flex;
+    min-height: 2.65rem;
+    gap: 0.45rem;
+    padding: 0 0.9rem;
+    align-items: center;
+    border: 2px solid #243052;
+    border-radius: 0.25rem;
+    background: #f8f2cf;
+    color: #243052;
+    font: 0.55rem/1 'PokemonGb', monospace;
+    box-shadow: inset -3px -3px 0 #9bb2e1, 0 4px 0 rgba(7, 11, 24, 0.5);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.computer-mobile-exit:focus-visible {
+    outline: 3px solid #ffe779;
+    outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+    .site-navbar {
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+
+    .site-navbar__brand {
+        font-size: clamp(1.2rem, 6vw, 1.45rem);
+    }
+
+    .landing-night__location {
+        top: calc(max(0.75rem, env(safe-area-inset-top)) + 2.85rem);
+        left: 1.5rem;
+        font-size: clamp(0.58rem, 2.8vw, 0.72rem);
+        letter-spacing: 0.035em;
+    }
+
+    .computer-screen-panel {
+        position: fixed !important;
+        top: calc(env(safe-area-inset-top, 0px) + 3.75rem) !important;
+        right: max(0.5rem, env(safe-area-inset-right)) !important;
+        bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+        left: max(0.5rem, env(safe-area-inset-left)) !important;
+        width: auto !important;
+        height: auto !important;
+        border-width: 2px !important;
+        box-shadow:
+            0 0 0 2px rgba(16, 20, 27, 0.85),
+            0 12px 32px rgba(0, 0, 0, 0.42),
+            inset 0 0 16px rgba(0, 0, 0, 0.68) !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .mobile-controls {
+        right: max(0.65rem, env(safe-area-inset-right));
+        bottom: max(0.65rem, env(safe-area-inset-bottom));
+        left: max(0.65rem, env(safe-area-inset-left));
+    }
+
+    .mobile-controls__joystick {
+        width: 8.1rem;
+        height: 8.1rem;
+    }
+
+    .mobile-controls__joystick-knob {
+        top: calc(50% - 1.8rem);
+        left: calc(50% - 1.8rem);
+        width: 3.6rem;
+        height: 3.6rem;
+    }
+
+    .mobile-control-button {
+        min-width: 2.7rem;
+        min-height: 2.7rem;
+    }
+
+    .mobile-controls__actions {
+        gap: 0.55rem;
+    }
+
+    .mobile-controls__actions .mobile-control-button {
+        width: 3.9rem;
+        height: 3.9rem;
+    }
+
+    .mobile-control-button--secondary {
+        margin-bottom: 1.8rem;
+    }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+    .mobile-controls__joystick {
+        width: 7.5rem;
+        height: 7.5rem;
+    }
+
+    .mobile-controls__joystick-knob {
+        top: calc(50% - 1.65rem);
+        left: calc(50% - 1.65rem);
+        width: 3.3rem;
+        height: 3.3rem;
+    }
+
+    .mobile-controls__actions .mobile-control-button {
+        width: 3.75rem;
+        height: 3.75rem;
+    }
+
+    .mobile-control-button--secondary {
+        margin-bottom: 1.4rem;
+    }
 }
 
 .landing-night__atmosphere {

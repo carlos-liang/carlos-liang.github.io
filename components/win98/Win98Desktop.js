@@ -42,6 +42,14 @@ function DesktopIcon({ icon, label, onOpen }) {
   return (
     <div
       onDoubleClick={onOpen}
+      onPointerUp={(event) => {
+        if (event.pointerType !== "mouse") onOpen();
+      }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onOpen();
+      }}
       style={{ width: 80, textAlign: "center", cursor: "pointer", color: "#fff", userSelect: "none", padding: 4 }}
     >
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>

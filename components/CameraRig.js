@@ -1,10 +1,13 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-// Room view — matches the <Canvas camera position> and OrbitControls target.
+// Room views — mobile is translated to the model floor's true midpoint
+// (x: 0.5, z: 0.5), which matters once the portrait framing is cropped tighter.
 const ROOM_POS = new THREE.Vector3(0, 21, 26.25);
 const ROOM_LOOK = new THREE.Vector3(0, 0, 0);
+const MOBILE_ROOM_POS = new THREE.Vector3(0.5, 21, 26.75);
+const MOBILE_ROOM_LOOK = new THREE.Vector3(0.5, 0, 0.5);
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
 // How far the camera sits in front of the screen, straight along its normal
@@ -17,9 +20,13 @@ const PANEL_OVERSCAN_Y = 1.13;
 // Trim the left edge slightly inward by this fraction of the
 // panel width, without moving the right edge — the left was spilling out a touch.
 const PANEL_TRIM_LEFT = 0.02;
+const BASE_VERTICAL_FOV = 20;
+const BASE_ASPECT = 16 / 9;
+const MOBILE_FRAMING_SCALE = 0.7;
 
 export default function CameraRig({
   computerState,
+  mobileMode = false,
   zoomTarget,
   panelRef,
   onZoomInDone,
@@ -36,6 +43,37 @@ export default function CameraRig({
   // Last panel rect written to the DOM, so we can skip redundant style writes
   // (which would otherwise re-layout the whole zoomed desktop every frame).
   const lastRect = useRef({ left: null, top: null, width: null, height: null });
+
+  // Portrait screens still need a wider field of view than desktop, but using
+  // the full desktop-width framing makes the room feel distant. Mobile keeps
+  // about 70% of that width so the room and character read substantially larger.
+  useEffect(() => {
+    if (!camera.isPerspectiveCamera || !size.width || !size.height) return;
+
+    const aspect = size.width / size.height;
+    const baseHalfFov = THREE.MathUtils.degToRad(BASE_VERTICAL_FOV / 2);
+    const framingAspect =
+      BASE_ASPECT * (mobileMode ? MOBILE_FRAMING_SCALE : 1);
+    const responsiveFov = THREE.MathUtils.radToDeg(
+      2 * Math.atan((Math.tan(baseHalfFov) * framingAspect) / aspect)
+    );
+    camera.fov = THREE.MathUtils.clamp(
+      responsiveFov,
+      mobileMode ? 16 : BASE_VERTICAL_FOV,
+      mobileMode ? 60 : 72
+    );
+    camera.updateProjectionMatrix();
+  }, [camera, mobileMode, size.height, size.width]);
+
+  useEffect(() => {
+    if (computerState !== "room") return;
+
+    const roomPosition = mobileMode ? MOBILE_ROOM_POS : ROOM_POS;
+    const roomTarget = mobileMode ? MOBILE_ROOM_LOOK : ROOM_LOOK;
+    camera.position.copy(roomPosition);
+    look.current.copy(roomTarget);
+    camera.lookAt(look.current);
+  }, [camera, computerState, mobileMode]);
 
   useFrame(() => {
     const zoomedIn =
@@ -127,10 +165,12 @@ export default function CameraRig({
         }
       }
     } else if (computerState === "zooming-out") {
-      camera.position.lerp(ROOM_POS, 0.1);
-      look.current.lerp(ROOM_LOOK, 0.1);
+      const roomPosition = mobileMode ? MOBILE_ROOM_POS : ROOM_POS;
+      const roomTarget = mobileMode ? MOBILE_ROOM_LOOK : ROOM_LOOK;
+      camera.position.lerp(roomPosition, 0.1);
+      look.current.lerp(roomTarget, 0.1);
       camera.lookAt(look.current);
-      const dist = camera.position.distanceTo(ROOM_POS);
+      const dist = camera.position.distanceTo(roomPosition);
       if (dist < 0.05) {
         if (onZoomOutDone && !arrivedRef.current) {
           arrivedRef.current = true;

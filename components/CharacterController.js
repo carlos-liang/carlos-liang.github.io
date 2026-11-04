@@ -82,20 +82,25 @@ const CharacterController = ({ heroRef, inputLocked, visible = true }) => {
   const handleKeyPress = useCallback((event) => {
     if (inputLockedRef.current) return;
     if (event.repeat) return;
-    switch (event.keyCode) {
-      case 87: //w
+    switch (event.code || event.key?.toLowerCase()) {
+      case "KeyW":
+      case "w":
         setMovement((prev) => ({...prev, forward: true}));
         break;
-      case 65: //a
+      case "KeyA":
+      case "a":
         setMovement((prev) => ({...prev, left: true}));
         break;
-      case 83: //s
+      case "KeyS":
+      case "s":
         setMovement((prev) => ({...prev, backward: true}));
         break;
-      case 68: //d
+      case "KeyD":
+      case "d":
         setMovement((prev) => ({...prev, right: true}));
         break;
-      case 32: //space
+      case "Space":
+      case " ":
         if (!inAir.current && characterBody.current) {
           const linvel = characterBody.current.linvel();
           characterBody.current.setLinvel({ x: linvel.x, y: JUMP_VELOCITY, z: linvel.z });
@@ -104,7 +109,8 @@ const CharacterController = ({ heroRef, inputLocked, visible = true }) => {
           takeoffSquash.current = TAKEOFF_SQUASH;
         }
         break;
-      case 16: //shift
+      case "ShiftLeft":
+      case "ShiftRight":
         setMovement((prev) => ({...prev, sprint: true}));
         break;
     }
@@ -112,20 +118,25 @@ const CharacterController = ({ heroRef, inputLocked, visible = true }) => {
 
   const handleKeyUp = useCallback((event) => {
     if (inputLockedRef.current) return;
-    switch (event.keyCode) {
-      case 87: //w
+    switch (event.code || event.key?.toLowerCase()) {
+      case "KeyW":
+      case "w":
         setMovement((prev) => ({...prev, forward: false}));
         break;
-      case 65: //a
+      case "KeyA":
+      case "a":
         setMovement((prev) => ({...prev, left: false}));
         break;
-      case 83: //s
+      case "KeyS":
+      case "s":
         setMovement((prev) => ({...prev, backward: false}));
         break;
-      case 68: //d
+      case "KeyD":
+      case "d":
         setMovement((prev) => ({...prev, right: false}));
         break;
-      case 16: //left shift
+      case "ShiftLeft":
+      case "ShiftRight":
         setMovement((prev) => ({...prev, sprint: false}));
         break;
     }
@@ -353,13 +364,13 @@ const CharacterController = ({ heroRef, inputLocked, visible = true }) => {
     };
 
     window.addEventListener("blur", handleBlur);
-    document.addEventListener("keydown", handleKeyPress);
-    document.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keydown", handleKeyPress);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
       window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("keydown", handleKeyPress);
-      document.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keydown", handleKeyPress);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, [handleKeyPress, handleKeyUp]);
 

@@ -12,9 +12,11 @@ import CameraRig from "../components/CameraRig";
 import PalletNightSky from "../components/PalletNightSky";
 import PokemonClipboard from "../components/PokemonClipboard";
 import ShootingStar from "../components/ShootingStar";
+import MobileControls from "../components/MobileControls";
 
 const LandingPage = () => {
   const [dpr, setDpr] = useState(1.5)
+  const [isTouchInput, setIsTouchInput] = useState(false);
   const [showDialog, setShowDialog] = useState(true);
   // Shared reference for character position
   const heroRef = useRef(new THREE.Vector3());
@@ -43,9 +45,28 @@ const LandingPage = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    const coarsePointer = window.matchMedia("(pointer: coarse)");
+    const updateInputMode = () => {
+      const touchEnabled =
+        coarsePointer.matches ||
+        (navigator.maxTouchPoints > 0 && window.innerWidth <= 900);
+      setIsTouchInput(touchEnabled);
+      setDpr(Math.min(window.devicePixelRatio || 1, touchEnabled ? 1.25 : 1.75));
+    };
+
+    updateInputMode();
+    coarsePointer.addEventListener?.("change", updateInputMode);
+    window.addEventListener("resize", updateInputMode);
+    return () => {
+      coarsePointer.removeEventListener?.("change", updateInputMode);
+      window.removeEventListener("resize", updateInputMode);
+    };
+  }, []);
+
   return (
     <div
-      className={`landing-night relative h-screen w-full overflow-hidden ${
+      className={`landing-night relative w-full overflow-hidden ${
         clipboardOpen ? "landing-night--clipboard-open" : ""
       }`}
     >
@@ -55,16 +76,7 @@ const LandingPage = () => {
         <ShootingStar />
       </div>
       <p
-        className="absolute z-40 m-0 whitespace-nowrap"
-        style={{
-          top: "3.75rem",
-          left: "4.5rem",
-          color: "#c8ccd4",
-          fontFamily: "monospace",
-          fontSize: "0.8rem",
-          letterSpacing: "0.08em",
-          pointerEvents: "none",
-        }}
+        className="landing-night__location absolute z-40 m-0 whitespace-nowrap"
       >
         Software Engineer &middot; Based in Sydney
       </p>
@@ -83,6 +95,7 @@ const LandingPage = () => {
       >
         <CameraRig
           computerState={computerState}
+          mobileMode={isTouchInput}
           zoomTarget={zoomTarget}
           panelRef={panelRef}
           onZoomInDone={() => setComputerState("booting")}
@@ -103,6 +116,7 @@ const LandingPage = () => {
         <OrbitControls
           enabled={computerState === "room" && !clipboardOpen}
           enableZoom={false}
+          target={isTouchInput ? [0.5, 0, 0.5] : [0, 0, 0]}
         />
 
         <Suspense fallback={null}>
@@ -129,11 +143,18 @@ const LandingPage = () => {
         <DialogBox
             messages={[
                 "Welcome to my portfolio!",
-                "Use WASD to move and E to interact with objects."
+                isTouchInput
+                  ? "Use the on-screen controls to explore. Tap E near an object to interact."
+                  : "Use WASD to move and E to interact with objects."
             ]} 
             onDone={() => setShowDialog(false)} 
         />
       )}
+
+      {isTouchInput &&
+        !showDialog &&
+        computerState === "room" &&
+        !clipboardOpen && <MobileControls />}
 
       {clipboardOpen && (
         <PokemonClipboard onClose={() => setClipboardOpen(false)} />
@@ -175,6 +196,16 @@ const LandingPage = () => {
             )}
           </div>
         </div>
+      )}
+
+      {isTouchInput && computerState === "desktop" && (
+        <button
+          type="button"
+          className="computer-mobile-exit"
+          onClick={exitComputer}
+        >
+          <span aria-hidden="true">←</span> Room
+        </button>
       )}
     </div>
   );
