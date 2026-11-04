@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FaLinkedinIn } from 'react-icons/fa';
+import { FaFilePdf, FaLinkedin } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
 
 export default function PokemonClipboard({ onClose }) {
@@ -83,7 +83,10 @@ export default function PokemonClipboard({ onClose }) {
               onClick={(event) => openContact(event, 'email')}
               onAnimationEnd={finishContactRip}
             >
-              <span className="fr-contact-card__mark" aria-hidden="true">
+              <span
+                className="fr-contact-card__link-mark fr-contact-card__link-mark--email"
+                aria-hidden="true"
+              >
                 <MdEmail focusable="false" />
               </span>
               <span>
@@ -100,12 +103,33 @@ export default function PokemonClipboard({ onClose }) {
               onClick={(event) => openContact(event, 'linkedin')}
               onAnimationEnd={finishContactRip}
             >
-              <span className="fr-contact-card__mark" aria-hidden="true">
-                <FaLinkedinIn focusable="false" />
+              <span
+                className="fr-contact-card__link-mark fr-contact-card__link-mark--linkedin"
+                aria-hidden="true"
+              >
+                <FaLinkedin focusable="false" />
               </span>
               <span>
                 <small>LET&apos;S CONNECT</small>
                 <strong>LINKEDIN</strong>
+              </span>
+              <span className="fr-contact-card__go" aria-hidden="true">&gt;</span>
+            </a>
+            <a
+              className="fr-contact-card fr-contact-card--cv"
+              href="/Carlos Liang CV.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span
+                className="fr-contact-card__link-mark fr-contact-card__link-mark--cv"
+                aria-hidden="true"
+              >
+                <FaFilePdf focusable="false" />
+              </span>
+              <span>
+                <small>VIEW MY RESUME</small>
+                <strong>CV</strong>
               </span>
               <span className="fr-contact-card__go" aria-hidden="true">&gt;</span>
             </a>

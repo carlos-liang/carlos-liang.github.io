@@ -1521,7 +1521,7 @@ body {
     image-rendering: auto;
     object-fit: cover;
     object-position: 50% 44%;
-    transform: scale(1.62);
+    transform: scale(1.85);
     transform-origin: 50% 44%;
 }
 
@@ -1589,17 +1589,20 @@ body {
 
 .fr-profile__contact-links {
     grid-area: contacts;
-    display: flex;
-    gap: 1.15rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(100%, 48rem);
+    gap: 0.9rem;
     align-items: center;
     justify-content: center;
     padding: 0.15rem 0.5rem 0;
+    justify-self: center;
 }
 
 .fr-contact-card {
     position: relative;
     display: grid;
-    width: min(16rem, 42%);
+    width: 100%;
     min-height: 3.35rem;
     grid-template-columns: 2.25rem minmax(0, 1fr) auto;
     gap: 0.65rem;
@@ -1632,6 +1635,11 @@ body {
     transform: rotate(1.25deg);
 }
 
+.fr-contact-card--cv {
+    background: #fff0e8;
+    transform: rotate(-0.35deg);
+}
+
 .fr-contact-card:hover {
     box-shadow: 6px 7px 0 rgba(83, 49, 29, 0.42);
     transform: translateY(-3px) rotate(-1.5deg);
@@ -1639,6 +1647,10 @@ body {
 
 .fr-contact-card--linkedin:hover {
     transform: translateY(-3px) rotate(1.25deg);
+}
+
+.fr-contact-card--cv:hover {
+    transform: translateY(-3px) rotate(-0.35deg);
 }
 
 .fr-contact-card--ripping {
@@ -1666,34 +1678,26 @@ body {
     outline-offset: 4px;
 }
 
-.fr-contact-card__mark {
+.fr-contact-card__link-mark {
     display: grid;
     width: 2.25rem;
     height: 2.25rem;
     place-items: center;
-    border: 3px solid var(--fr-ink);
-    border-radius: 50%;
-    background: var(--fr-red);
-    color: #fff;
-    line-height: 1;
-    box-shadow:
-        3px 3px 0 rgba(52, 56, 77, 0.24),
-        inset 2px 2px 0 rgba(255, 190, 166, 0.42),
-        inset -3px -3px 0 #983b40;
+    filter: drop-shadow(2px 3px 0 rgba(52, 56, 77, 0.28));
 }
 
-.fr-contact-card__mark svg {
-    width: 1.22rem;
-    height: 1.22rem;
-    filter: drop-shadow(1px 1px 0 rgba(35, 44, 67, 0.55));
+.fr-contact-card__link-mark svg {
+    width: 2.15rem;
+    height: 2.15rem;
 }
 
-.fr-contact-card--linkedin .fr-contact-card__mark {
-    background: #2f72ad;
-    box-shadow:
-        3px 3px 0 rgba(52, 56, 77, 0.24),
-        inset 2px 2px 0 rgba(170, 215, 242, 0.38),
-        inset -3px -3px 0 #244c77;
+.fr-contact-card__link-mark--email,
+.fr-contact-card__link-mark--cv {
+    color: #d9574d;
+}
+
+.fr-contact-card__link-mark--linkedin {
+    color: #0a66c2;
 }
 
 .fr-contact-card small,
@@ -1722,6 +1726,10 @@ body {
 
 .fr-contact-card--linkedin .fr-contact-card__go {
     color: #5277a3;
+}
+
+.fr-contact-card--cv .fr-contact-card__go {
+    color: #b74843;
 }
 
 @keyframes fr-profile-open {
@@ -1820,27 +1828,32 @@ body {
     }
 
     .fr-profile__contact-links {
-        gap: 0.65rem;
+        width: min(100%, 18rem);
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.75rem;
         padding-inline: 0;
     }
 
     .fr-contact-card {
-        width: 50%;
+        width: 100%;
         min-height: 2.75rem;
         grid-template-columns: 1.65rem minmax(0, 1fr) auto;
         gap: 0.4rem;
         padding: 0.48rem 0.42rem 0.4rem;
     }
 
-    .fr-contact-card__mark {
-        width: 1.6rem;
-        height: 1.6rem;
-        border-width: 2px;
+    .fr-contact-card--cv {
+        width: 100%;
     }
 
-    .fr-contact-card__mark svg {
-        width: 0.9rem;
-        height: 0.9rem;
+    .fr-contact-card__link-mark {
+        width: 1.6rem;
+        height: 1.6rem;
+    }
+
+    .fr-contact-card__link-mark svg {
+        width: 1.55rem;
+        height: 1.55rem;
     }
 
     .fr-contact-card small {
